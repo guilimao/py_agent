@@ -1,3 +1,4 @@
+import os
 
 def get_current_weather(location: str, unit: str = "celsius") -> str:
     """获取当前天气情况"""
@@ -7,7 +8,7 @@ def get_stock_price(stock_symbol: str) -> str:
     """获取股票当前价格"""
     return f"{stock_symbol}的当前价格是$150.75"
 
-def read_file(file_name: str):
+def read_file(file_name: str) -> str:
     try:
         with open(file_name, 'r',encoding='utf-8') as file:
             content = file.read()
@@ -16,6 +17,16 @@ def read_file(file_name: str):
         return "文件不存在"
     except Exception as e:
         return f"读取文件时发生错误: {str(e)}"
+
+def list_directory(directory:str)->str:
+    try:
+        items = os.listdir(directory)
+        return "\n".join(items) if items else f"目录{directory}为空"
+    except FileNotFoundError:
+        return f"目录{directory}不存在"
+    except Exception as e:
+        return f"列出目录时发生错误: {str(e)}"
+
 
 TOOLS = [
     {
@@ -73,6 +84,24 @@ TOOLS = [
                 "required": ["file_name"],
             },
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_directory",
+            "description": "列出指定目录下的所有文件",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "directory": {
+                        "type": "string",
+                        "description": "目录路径",
+                    },
+                },
+                "required": ["directory"],
+            },
+            
+        }
     }
 ]
 
@@ -81,4 +110,5 @@ TOOL_FUNCTIONS = {
     "get_current_weather": get_current_weather,
     "get_stock_price": get_stock_price,
     "read_file": read_file,
+    "list_directory": list_directory,
 }
