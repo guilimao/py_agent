@@ -15,7 +15,7 @@ PyAgent is a Python implementation of a command-line LLM (Large Language Model) 
 ## Usage
 
 ```bash
-# python test.py
+# python main.py
 ```
 
 ## Roadmap
