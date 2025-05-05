@@ -4,7 +4,7 @@ A command line LLM agent example built using Python.
 
 ## Overview
 
-PyAgent is a Python implementation of a command-line LLM (Large Language Model) agent, inspired by Thorsten Ball's [How to Build an Agent](https://ampcode.com/how-to-build-an-agent). This project demonstrates how to build an interactive agent that can process natural language commands and perform various tasks.
+PyAgent is a Python implementation of a command-line LLM (Large Language Model) agent. This project demonstrates how to build an interactive agent that can process natural language commands and perform various tasks.
 
 ## Features
 
