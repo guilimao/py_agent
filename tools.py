@@ -1,13 +1,5 @@
 import os
 
-def get_current_weather(location: str, unit: str = "celsius") -> str:
-    """获取当前天气情况"""
-    return f"{location}的天气是22度{unit}"
-
-def get_stock_price(stock_symbol: str) -> str:
-    """获取股票当前价格"""
-    return f"{stock_symbol}的当前价格是$150.75"
-
 def read_file(file_name: str) -> str:
     try:
         with open(file_name, 'r',encoding='utf-8') as file:
@@ -26,6 +18,21 @@ def list_directory(directory:str)->str:
         return f"目录{directory}不存在"
     except Exception as e:
         return f"列出目录时发生错误: {str(e)}"
+    
+def create_file(file_name: str, file_content: str) -> str:
+    try:
+        with open(file_name, 'w',encoding='utf-8') as file:
+            file.write(file_content)
+        return "文件创建成功"
+    except Exception as e:
+        return f"创建文件时发生错误: {str(e)}"
+    
+def delete_file(file_path: str) -> str: 
+    try:
+        os.remove(file_path)
+        return "文件删除成功"
+    except FileNotFoundError:
+        return f"文件{file_path}不存在"
 
 
 TOOLS = [
@@ -102,13 +109,52 @@ TOOLS = [
             },
             
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_file",
+            "description": "创建一个新文件",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_name": {
+                        "type": "string",
+                        "description": "文件名",
+                    },
+                    "file_content": {
+                        "type": "string",
+                        "description": "文件内容",
+                    },
+                },
+                "required": ["file_name", "file_content"],
+            },
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_file",
+            "description": "删除一个文件",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "文件路径",
+                    },
+                },
+                "required": ["file_path"],
+            },
+        }
     }
+
 ]
 
 # 工具名称到函数的映射
 TOOL_FUNCTIONS = {
-    "get_current_weather": get_current_weather,
-    "get_stock_price": get_stock_price,
     "read_file": read_file,
     "list_directory": list_directory,
+    "create_file": create_file,
+    "delete_file": delete_file,
 }
