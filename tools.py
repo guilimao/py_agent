@@ -33,6 +33,13 @@ def delete_file(file_path: str) -> str:
         return "文件删除成功"
     except FileNotFoundError:
         return f"文件{file_path}不存在"
+    
+def create_directory(directory_path:str)->str:
+    try:
+        os.makedirs(directory_path,exist_ok=True)
+        return f"目录{directory_path}创建成功"
+    except Exception as e:
+        return f"目录{directory_path}创建出错：{str(e)}"
 
 
 TOOLS = [
@@ -147,6 +154,23 @@ TOOLS = [
                 "required": ["file_path"],
             },
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_directory",
+            "description": "创建一个目录",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "directory_path": {
+                        "type": "string",
+                        "description": "目录路径",
+                    },
+                },
+                "required": ["directory_path"],
+            },
+        }
     }
 
 ]
@@ -157,4 +181,5 @@ TOOL_FUNCTIONS = {
     "list_directory": list_directory,
     "create_file": create_file,
     "delete_file": delete_file,
+    "create_directory": create_directory,
 }
