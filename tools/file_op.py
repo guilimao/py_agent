@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+import shutil
 
 
 BASE_SAFE_DIR = os.path.abspath("./")  # 可以根据需要修改这个路径
@@ -82,8 +83,29 @@ def create_directory(directory_path: str) -> str:
         return f"目录{directory_path}创建成功"
     except Exception as e:
         return f"目录{directory_path}创建出错：{str(e)}"
+    
+def copy_file_or_directory(source_path: str, destination_path: str) -> str:
+    try:
+        destination_path = _get_safe_path(destination_path)
+        source_path = _get_safe_path(source_path)
+        if not destination_path or not source_path:
+            return "错误：路径位于安全目录外"
 
+        if os.path.isdir(source_path):
+            shutil.copytree(source_path, destination_path)
+        else:
+            shutil.copy2(source_path, destination_path)
 
+        return f"成功将 {source_path} 复制到 {destination_path}"
+
+    except FileNotFoundError:
+        return f"错误：源路径 {source_path} 未找到"
+    except PermissionError:
+        return f"错误：权限不足，无法访问或写入路径 {destination_path}"
+    except FileExistsError:
+        return f"错误：目标路径 {destination_path} 已存在"
+    except Exception as e:
+        return f"复制文件/目录时出错: {str(e)}"
 
 FILE_TOOLS = [
     {
@@ -175,6 +197,27 @@ FILE_TOOLS = [
                 "required": ["directory_path"],
             },
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "copy_file_or_directory",
+            "description": "复制文件或整个目录到指定位置",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "source_path": {
+                        "type": "string",
+                        "description": "源文件或目录路径",
+                    },
+                    "destination_path": {
+                        "type": "string",
+                        "description": "目标路径",
+                    }
+                },
+                "required": ["source_path", "destination_path"],
+            },
+        }
     }
 
 ]
@@ -186,4 +229,5 @@ FILE_FUNCTIONS = {
     "create_file": create_file,
     "delete_file": delete_file,
     "create_directory": create_directory,
+    "copy_file_or_directory": copy_file_or_directory
 }
