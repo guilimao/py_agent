@@ -31,6 +31,7 @@ PyAgent is a Python implementation of a command-line LLM (Large Language Model) 
   - [x] File reading
   - [x] Directory listing
   - [x] File creation/modification/deletion
+  - [x] File path permission control
   - [ ] Differential modification of large files
   - [ ] ... (additional file operations)
 
