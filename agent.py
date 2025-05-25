@@ -19,6 +19,8 @@ class Agent:
                     break
                 self.messages.append({"role": "user", "content": user_input})
 
+                print()
+
                 while True:
                     full_response = ""
                     tool_calls_cache = {}
