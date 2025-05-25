@@ -6,10 +6,10 @@ from typing import Callable,Tuple
 from tools import TOOL_FUNCTIONS,TOOLS
 
 class Agent:
-    def __init__(self, client: OpenAI, get_user_message: Callable[[], Tuple[str, bool]]):
+    def __init__(self, client: OpenAI, get_user_message: Callable[[], Tuple[str, bool]],system_prompt:str):
         self.client = client
         self.get_user_message = get_user_message
-        self.messages = []
+        self.messages = [{"role": "system", "content": system_prompt}]
 
     def run(self):
         try:
@@ -109,8 +109,18 @@ def get_user_message()->Tuple[str,bool]:
     except KeyboardInterrupt:
         return "", False
 def main():
+    try:
+        with open('system_prompt.json', 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            system_prompt = config.get('system_prompt', "默认系统提示")
+    except FileNotFoundError:
+        print("配置文件不存在，使用默认系统提示")
+        system_prompt = "这是一个默认的系统提示"
+    except json.JSONDecodeError:
+        print("配置文件格式错误，使用默认系统提示")
+        system_prompt = "这是一个默认的系统提示"
     client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
-    agent = Agent(client, get_user_message)
+    agent = Agent(client, get_user_message,system_prompt)
     agent.run()
 
 if __name__ == "__main__":
