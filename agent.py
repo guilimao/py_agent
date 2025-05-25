@@ -83,8 +83,8 @@ class Agent:
                                 continue
 
                             if function_name in TOOL_FUNCTIONS:
-                                function_response = TOOL_FUNCTIONS[function_name](**function_args)
                                 print(f"工具调用中：{function_name}")
+                                function_response = TOOL_FUNCTIONS[function_name](**function_args)
                                 self.messages.append({
                                     "role": "tool",
                                     "content": str(function_response),
