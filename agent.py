@@ -10,10 +10,39 @@ class Agent:
         self.get_user_message = get_user_message
         self.messages = [{"role": "system", "content": system_prompt}]
 
+    def save_conversation(self):
+        """保存当前对话记录到文件（追加模式）"""
+        # 提取当前对话记录
+        new_conversations = []
+        for i in range(1, len(self.messages), 2):  # 跳过系统提示
+            if i + 1 < len(self.messages):
+                user_input = self.messages[i]["content"]
+                ai_response = self.messages[i + 1]["content"]
+                new_conversations.append({"user_input": user_input, "ai_response": ai_response})
+
+        # 读取现有记录（如果文件存在）
+        try:
+            with open("conversation_memory.json", "r", encoding="utf-8") as f:
+                existing_data = json.load(f)
+                existing_conversations = existing_data.get("conversations", [])
+        except (FileNotFoundError, json.JSONDecodeError):
+            existing_conversations = []  # 文件不存在或为空时初始化空列表
+
+        # 合并新旧记录
+        updated_conversations = existing_conversations + new_conversations
+
+        # 保存更新后的记录
+        with open("conversation_memory.json", "w", encoding="utf-8") as f:
+            json.dump({"conversations": updated_conversations}, f, ensure_ascii=False, indent=2)
+
     def run(self):
         try:
             print("对话开始，输入‘退出’结束对话")
             while True:
+                # 保存当前对话记录
+                self.save_conversation()
+
+                # 获取用户输入
                 user_input, has_input = self.get_user_message()
                 if not has_input or user_input.lower() == '退出':
                     break
@@ -99,3 +128,6 @@ class Agent:
 
         except Exception as e:
             print(f"发生错误: {e}")
+        finally:
+            # 最终保存一次对话记录
+            self.save_conversation()

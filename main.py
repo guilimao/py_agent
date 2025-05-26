@@ -3,7 +3,7 @@ import sys
 import os
 from agent import Agent
 from config import get_system_prompt
-from utils import get_user_message
+from input_handler import get_user_message
         
 def main():
     

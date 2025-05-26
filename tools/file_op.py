@@ -112,7 +112,7 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "读取指定文件的内容",
+            "description": "读取指定文件的内容（建议先在目录下查看文件的完整名称）",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -147,7 +147,7 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "create_file",
-            "description": "创建一个新文件",
+            "description": "创建一个新文件（也可以用于覆盖同名旧文件）",
             "parameters": {
                 "type": "object",
                 "properties": {
