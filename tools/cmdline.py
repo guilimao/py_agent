@@ -18,7 +18,7 @@ COMMAND_TOOLS = [
         "type": "function",
         "function": {
             "name": "execute_command",
-            "description": "执行命令行指令并返回执行结果（如无特别说明，操作系统为windows）",
+            "description": "执行命令行指令并返回执行结果（多行命令最好以文件形式执行，操作系统为windows）",
             "parameters": {
                 "type": "object",
                 "properties": {
