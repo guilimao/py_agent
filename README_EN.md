@@ -35,6 +35,8 @@ PyAgent is a Python implementation of a command-line LLM (Large Language Model) 
   - [ ] Differential modification of large files
   - [ ] ... (additional file operations)
 
+- [x] Command-line execution
+
 ## Credits
 
 This project was inspired by [How to Build an Agent](https://ampcode.com/how-to-build-an-agent) by Thorsten Ball, but rewritten in Python.
