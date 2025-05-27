@@ -14,8 +14,27 @@ PyAgent is a Python implementation of a command-line LLM (Large Language Model) 
 
 ## Usage
 
+### Environment Setup
+1. Install dependencies (execute before first run):
 ```bash
-# python main.py
+pip install openai
+```
+
+2. Configure Volcengine API Key:
+   - **Windows**: Run in command prompt (temporary effect):
+     ```bash
+     set ARK_API_KEY=your_volcengine_api_key
+     ```
+     Or set via system environment variables (permanent effect): Control Panel -> System and Security -> System -> Advanced System Settings -> Environment Variables -> Add `ARK_API_KEY` key-value pair under User Variables.
+   - **macOS/Linux**: Run in terminal (temporary effect):
+     ```bash
+     export ARK_API_KEY=your_volcengine_api_key
+     ```
+     Or add to `~/.bashrc` or `~/.zshrc` file (permanent effect).
+
+### Start the Agent
+```bash
+python main.py
 ```
 
 ## Roadmap
@@ -43,4 +62,4 @@ This project was inspired by [How to Build an Agent](https://ampcode.com/how-to-
 
 ---
 
-[中文版本](README.md)
+[Chinese Version](README.md)

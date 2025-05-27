@@ -14,8 +14,27 @@ PyAgent 是一个基于 Python 实现的命令行 LLM（大型语言模型）代
 
 ## 使用方法
 
+### 环境准备
+1. 安装依赖库（首次运行前执行）：
 ```bash
-# python main.py
+pip install openai
+```
+
+2. 配置火山引擎 API Key：
+   - **Windows**：在命令行执行（临时生效）
+     ```bash
+     set ARK_API_KEY=your_volcengine_api_key
+     ```
+     或通过系统环境变量设置（永久生效）：控制面板 -> 系统和安全 -> 系统 -> 高级系统设置 -> 环境变量 -> 用户变量中添加 `ARK_API_KEY` 键值对。
+   - **macOS/Linux**：在终端执行（临时生效）
+     ```bash
+     export ARK_API_KEY=your_volcengine_api_key
+     ```
+     或添加到 `~/.bashrc` 或 `~/.zshrc` 文件中（永久生效）。
+
+### 启动代理
+```bash
+python main.py
 ```
 
 ## 路线图
