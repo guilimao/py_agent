@@ -1,4 +1,5 @@
 # 忽略 __pycache__ 目录（包含其子目录和文件）
 __pycache__/
 # 忽略 conversation_memory.json 文件
-conversation_memory.json*.pyc  
+conversation_memory.json
+*.pyc  
