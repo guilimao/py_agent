@@ -1,4 +1,4 @@
-# ╨Жбт __pycache__ д©б╪ё╗╟Э╨╛фДвсд©б╪╨мнд╪Чё╘  
-__pycache__/  
-# ╨Жбт conversation_memory.json нд╪Ч  
-conversation_memory.json 
+# Е©╫Г∙╔ __pycache__ Г⌡╝Е╫∙О╪┬Е▄┘Е░╚Е┘╤Е╜░Г⌡╝Е╫∙Е▓▄Ф√┤Д╩╤О╪┴
+__pycache__/
+# Е©╫Г∙╔ conversation_memory.json Ф√┤Д╩╤
+conversation_memory.json*.pyc  
