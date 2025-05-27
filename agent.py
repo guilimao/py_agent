@@ -54,9 +54,12 @@ class Agent:
                     full_response = ""
                     tool_calls_cache = {}
                     tool_calls = None
+                    reasoning_content = ""
+                    is_first_reasoning_chunk = True
+                    is_first_chat_chunk = True
 
                     stream = self.client.chat.completions.create(
-                        model="deepseek-chat",
+                        model="doubao-1-5-thinking-pro-250415",
                         messages=self.messages,
                         stream=True,
                         tools=TOOLS,
@@ -64,7 +67,19 @@ class Agent:
                     )
 
                     for chunk in stream:
-                        if chunk.choices[0].delta.content:
+                        if hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
+                            if is_first_reasoning_chunk:
+                                print("<think>")
+                                is_first_reasoning_chunk = False
+                            reasoning_content += chunk.choices[0].delta.reasoning_content
+                            sys.stdout.write(chunk.choices[0].delta.reasoning_content)
+                            sys.stdout.flush()
+
+
+                        elif chunk.choices[0].delta.content:
+                            if is_first_chat_chunk and not is_first_reasoning_chunk:
+                                print("</think>")
+                                is_first_chat_chunk = False
                             chunk_content = chunk.choices[0].delta.content
                             full_response += chunk_content
                             sys.stdout.write(chunk_content)
