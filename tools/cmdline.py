@@ -3,10 +3,13 @@ from typing import Optional
 
 def execute_command(command: str) -> str:
     """
-    执行命令行指令并返回执行结果
+    执行命令行指令并返回执行结果（无报错时若输出为空会返回成功提示）
     """
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        # 检查标准输出是否为空或仅包含空白字符
+        if not result.stdout.strip():
+            return f"命令执行成功：{command}"
         return result.stdout
     except subprocess.CalledProcessError as e:
         return f"执行命令时发生错误: {e.stderr}"
