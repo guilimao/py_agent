@@ -1,0 +1,12 @@
+{
+    "doubao": {
+        "api_key_env": "ARK_API_KEY",
+        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+        "models": ["doubao-1-5-thinking-pro-250415", "deepseek-r1-250120","deepseek-v3-250324"]
+    },
+    "deepseek": {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "base_url": "https://api.deepseek.com/v1",
+        "models": ["deepseek-chat", "deepseek-reasoner"]
+    }
+}
