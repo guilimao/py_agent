@@ -160,7 +160,7 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "create_file",
-            "description": "创建一个新文件（也可以用于覆盖同名旧文件）",
+            "description": "创建新文件，或更新文件内容",
             "parameters": {
                 "type": "object",
                 "properties": {
