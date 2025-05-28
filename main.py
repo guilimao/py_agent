@@ -10,16 +10,22 @@ def load_provider_config():
     with open("config/provider_config.json", "r", encoding="utf-8") as f:
         return json.load(f)
 
-def get_provider_from_model(model_name: str) -> str:
-    provider_mapping = {
-        "doubao": ["doubao"],
-        "openai": ["gpt"],
-        "deepseek": ["deepseek"]
-    }
-    for provider, keywords in provider_mapping.items():
-        if any(keyword in model_name.lower() for keyword in keywords):
+def get_provider_from_model(model_name: str, provider_config: dict) -> str:
+    """
+    根据模型名称和提供商配置，查找对应的提供商
+    
+    Args:
+        model_name (str): 用户指定的模型名称
+        provider_config (dict): 加载后的提供商配置（来自 provider_config.json）
+    
+    Returns:
+        str: 模型对应的提供商名称
+    """
+    for provider, config in provider_config.items():
+        if model_name in config.get("models", []):
             return provider
-    raise ValueError(f"未识别的模型提供商，模型名称：{model_name}")
+    raise ValueError(f"未找到支持模型 {model_name} 的提供商，请检查 config/provider_config.json 配置")
+
 
 def main():
     parser = argparse.ArgumentParser(description="配置Agent运行参数")
@@ -32,13 +38,14 @@ def main():
     args = parser.parse_args()
 
     provider_config = load_provider_config()
-    provider = get_provider_from_model(args.model)
+    provider = get_provider_from_model(args.model, provider_config)
+
     config = provider_config.get(provider)
     if not config:
-        raise ValueError(f"提供商{provider}未在config/provider_config.json中配置")
+        raise ValueError(f"提供商 {provider} 未在 config/provider_config.json 中配置")
 
     if args.model not in config["models"]:
-        raise ValueError(f"模型{args.model}未在提供商{provider}的支持模型列表中，可用模型：{config['models']}")
+        raise ValueError(f"模型 {args.model} 未在提供商 {provider} 的支持模型列表中，可用模型：{config['models']}")
 
     client = OpenAI(
         api_key=os.getenv(config["api_key_env"]),
@@ -52,6 +59,7 @@ def main():
         model_name=args.model
     )
     agent.run()
+
 
 if __name__ == "__main__":
     main()

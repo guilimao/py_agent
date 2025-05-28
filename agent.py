@@ -120,6 +120,7 @@ class Agent:
                         })
                         for tool_call in tool_calls:
                             function_name = tool_call['function']['name']
+                            print(f"工具调用中：{function_name}")
                             try:
                                 function_args = json.loads(tool_call['function']['arguments'])
                             except json.JSONDecodeError:
@@ -127,7 +128,6 @@ class Agent:
                                 continue
 
                             if function_name in TOOL_FUNCTIONS:
-                                print(f"工具调用中：{function_name}")
                                 function_response = TOOL_FUNCTIONS[function_name](**function_args)
                                 self.messages.append({
                                     "role": "tool",
