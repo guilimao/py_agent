@@ -6,12 +6,22 @@ def execute_command(command: str) -> str:
     执行命令行指令并返回执行结果（无报错时若输出为空会返回成功提示）
     """
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        # 将编码从gbk改为utf-8，适配Git等工具的UTF-8输出
+        result = subprocess.run(
+            command, 
+            shell=True, 
+            capture_output=True, 
+            text=True, 
+            encoding='utf-8',  # 关键修改点
+            check=True
+        )
         if not result.stdout.strip():
             return f"命令执行成功：{command}"
         return result.stdout
     except subprocess.CalledProcessError as e:
-        return f"执行命令时发生错误: {e.stderr}"
+        # 错误输出使用utf-8解码
+        error_output = e.stderr.decode('utf-8', errors='replace') if isinstance(e.stderr, bytes) else e.stderr
+        return f"执行命令时发生错误: {error_output}"
     except Exception as e:
         return f"发生未知错误: {str(e)}"
 
