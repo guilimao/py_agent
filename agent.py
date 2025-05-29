@@ -10,12 +10,12 @@ class Agent:
         client: OpenAI, 
         get_user_message: Callable[[], Tuple[str, bool]], 
         system_prompt: str, 
-        model_name: str = "doubao-1-5-thinking-pro-250415"  # 模型名称参数化
+        model_name: str = "doubao-1-5-thinking-pro-250415"
     ):
         self.client = client
         self.get_user_message = get_user_message
         self.messages = [{"role": "system", "content": system_prompt}]
-        self.model_name = model_name  # 保存模型名称为实例变量
+        self.model_name = model_name  
 
     def save_conversation(self):
         new_conversations = []
@@ -58,7 +58,7 @@ class Agent:
                     is_first_chat_chunk = True
 
                     stream = self.client.chat.completions.create(
-                        model=self.model_name,  # 关键修改：替换硬编码模型
+                        model=self.model_name,
                         messages=self.messages,
                         stream=True,
                         tools=TOOLS,

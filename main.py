@@ -11,16 +11,6 @@ def load_provider_config():
         return json.load(f)
 
 def get_provider_from_model(model_name: str, provider_config: dict) -> str:
-    """
-    根据模型名称和提供商配置，查找对应的提供商
-    
-    Args:
-        model_name (str): 用户指定的模型名称
-        provider_config (dict): 加载后的提供商配置（来自 provider_config.json）
-    
-    Returns:
-        str: 模型对应的提供商名称
-    """
     for provider, config in provider_config.items():
         if model_name in config.get("models", []):
             return provider
@@ -33,7 +23,7 @@ def main():
         "--model",
         type=str,
         default="doubao-1-5-thinking-pro-250415",
-        help="指定使用的LLM模型名称（如doubao-1-5-thinking-pro-250415、gpt-3.5-turbo、deepseek-llm-7b等）"
+        help="指定使用的LLM模型名称"
     )
     args = parser.parse_args()
 

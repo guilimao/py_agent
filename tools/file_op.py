@@ -3,14 +3,11 @@ import json
 from typing import Optional, List
 import shutil
 
-# 从配置文件读取安全目录列表（支持多个安全目录）
 def _get_allowed_directories() -> List[str]:
-    """读取允许的安全目录列表（从config/allowed_directories.json）"""
     config_path = os.path.join(os.path.dirname(__file__), "..", "config", "allowed_directories.json")
     try:
         with open(config_path, "r", encoding="utf-8") as f:
-            allowed_dirs = json.load(f)  # 格式应为["/dir1", "/dir2", ...]
-            # 转换为绝对路径（避免相对路径问题）
+            allowed_dirs = json.load(f)  
             return [os.path.abspath(dir_path) for dir_path in allowed_dirs]
     except FileNotFoundError:
         return [os.path.abspath("./")]  # 配置文件不存在时默认允许当前目录
@@ -22,9 +19,7 @@ def _get_allowed_directories() -> List[str]:
 ALLOWED_DIRECTORIES = _get_allowed_directories()  # 全局安全目录列表
 
 def _is_safe_path(path: str) -> bool:
-    """检查路径是否在任意一个安全目录内"""
     requested_path = os.path.abspath(path)
-    # 遍历所有允许的安全目录，检查是否存在包含关系
     for safe_dir in ALLOWED_DIRECTORIES:
         safe_dir_abs = os.path.abspath(safe_dir)
         common_path = os.path.commonpath([requested_path, safe_dir_abs])
@@ -32,7 +27,6 @@ def _is_safe_path(path: str) -> bool:
             return True
     return False
 
-# 以下工具函数的安全检查逻辑已更新（基于多目录校验）
 def read_file(file_name: str) -> str:
     try:
         if not _is_safe_path(file_name):
@@ -63,7 +57,6 @@ def create_file(file_name: str, file_content: str) -> str:
         if not _is_safe_path(file_name):
             return "错误：尝试在安全目录外创建文件"
             
-        # 确保目录存在
         abs_path = os.path.abspath(file_name)
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
         with open(abs_path, 'w', encoding='utf-8') as file:
@@ -97,7 +90,6 @@ def create_directory(directory_path: str) -> str:
     
 def copy_file_or_directory(source_path: str, destination_path: str) -> str:
     try:
-        # 检查源路径和目标路径是否都在安全目录内
         if not _is_safe_path(source_path) or not _is_safe_path(destination_path):
             return "错误：源路径或目标路径位于安全目录外"
 
