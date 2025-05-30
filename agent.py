@@ -122,7 +122,7 @@ class Agent:
                             sys.stdout.flush()
 
                         tool_calls = getattr(chunk.choices[0].delta, 'tool_calls', None)
-                        if tool_calls is not None:
+                        if tool_calls is not None and not is_first_chat_chunk:
                             for tool_chunk in tool_calls if tool_calls else []:
                                 if tool_chunk.index not in tool_calls_cache:
                                     tool_calls_cache[tool_chunk.index] = {
