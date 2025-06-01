@@ -1,29 +1,49 @@
 import subprocess
 from typing import Optional
+import chardet  # 新添加的chardet库
 
 def execute_command(command: str) -> str:
     """
     执行命令行指令并返回执行结果（无报错时若输出为空会返回成功提示）
     """
     try:
-        # 将编码从gbk改为utf-8，适配Git等工具的UTF-8输出
+        # 关键修改：将text=True改为text=False，获取字节流
         result = subprocess.run(
             command, 
             shell=True, 
             capture_output=True, 
-            text=True, 
-            encoding='utf-8',  # 关键修改点
+            text=False,  # 改为字节流模式
             check=True
         )
-        if not result.stdout.strip():
+        
+        # 检测stdout编码（优先使用stdout，若为空则检测stderr）
+        if result.stdout:
+            detected_encoding = chardet.detect(result.stdout)['encoding'] or 'utf-8'
+            stdout = result.stdout.decode(detected_encoding, errors='replace')
+        else:
+            detected_encoding = 'utf-8'
+            stdout = ''
+
+        # 处理stderr（如果有错误）
+        if result.stderr:
+            stderr = result.stderr.decode(detected_encoding, errors='replace')
+        else:
+            stderr = ''
+
+        # 输出结果处理
+        if not stdout.strip() and not stderr.strip():
             return f"命令执行成功：{command}"
-        return result.stdout
+        return stdout + stderr  # 合并标准输出和错误输出
+
     except subprocess.CalledProcessError as e:
-        # 错误输出使用utf-8解码
-        error_output = e.stderr.decode('utf-8', errors='replace') if isinstance(e.stderr, bytes) else e.stderr
+        # 检测错误输出的编码
+        error_bytes = e.stderr if isinstance(e.stderr, bytes) else b''
+        detected_encoding = chardet.detect(error_bytes)['encoding'] or 'utf-8'
+        error_output = error_bytes.decode(detected_encoding, errors='replace')
         return f"执行命令时发生错误: {error_output}"
     except Exception as e:
         return f"发生未知错误: {str(e)}"
+
 
 COMMAND_TOOLS = [
     {
