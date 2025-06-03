@@ -3,6 +3,7 @@ import json
 from typing import Optional, List
 import shutil
 
+
 def _get_allowed_directories() -> List[str]:
     config_path = os.path.join(os.path.dirname(__file__), "..", "config", "allowed_directories.json")
     try:
@@ -18,6 +19,7 @@ def _get_allowed_directories() -> List[str]:
 
 ALLOWED_DIRECTORIES = _get_allowed_directories()  # 全局安全目录列表
 
+
 def _is_safe_path(path: str) -> bool:
     requested_path = os.path.abspath(path)
     for safe_dir in ALLOWED_DIRECTORIES:
@@ -26,6 +28,7 @@ def _is_safe_path(path: str) -> bool:
         if common_path == safe_dir_abs:
             return True
     return False
+
 
 def read_file(file_name: str) -> str:
     try:
@@ -40,6 +43,7 @@ def read_file(file_name: str) -> str:
     except Exception as e:
         return f"读取文件时发生错误: {str(e)}"
 
+
 def list_directory(directory: str) -> str:
     try:
         if not _is_safe_path(directory):
@@ -52,6 +56,7 @@ def list_directory(directory: str) -> str:
     except Exception as e:
         return f"列出目录时发生错误: {str(e)}"
     
+
 def create_file(file_name: str, file_content: str) -> str:
     try:
         if not _is_safe_path(file_name):
@@ -65,6 +70,7 @@ def create_file(file_name: str, file_content: str) -> str:
     except Exception as e:
         return f"创建文件时发生错误: {str(e)}"
     
+
 def delete_file(file_path: str) -> str: 
     try:
         if not _is_safe_path(file_path):
@@ -77,6 +83,7 @@ def delete_file(file_path: str) -> str:
     except Exception as e:
         return f"删除文件时发生错误: {str(e)}"
     
+
 def create_directory(directory_path: str) -> str:
     try:
         if not _is_safe_path(directory_path):
@@ -88,6 +95,7 @@ def create_directory(directory_path: str) -> str:
     except Exception as e:
         return f"目录{directory_path}创建出错：{str(e)}"
     
+
 def copy_file_or_directory(source_path: str, destination_path: str) -> str:
     try:
         if not _is_safe_path(source_path) or not _is_safe_path(destination_path):
@@ -111,6 +119,34 @@ def copy_file_or_directory(source_path: str, destination_path: str) -> str:
         return f"错误：目标路径 {destination_path} 已存在"
     except Exception as e:
         return f"复制文件/目录时出错: {str(e)}"
+    
+
+def find_replace(file_path: str, find_text: str, replace_text: str) -> str:
+    """查找file_path中与find_text相同的部分，将其替换为replace_text，并保存
+
+    Args:
+    - file_path (str) [Required]: 要操作的文件路径
+    - find_text (str) [Required]: 需要查找的文本内容
+    - replace_text (str) [Required]: 要替换成的文本内容
+    """
+    try:
+        # 检查路径安全性
+        if not _is_safe_path(file_path):
+            return "错误：文件路径位于安全目录外"
+        # 读取文件内容
+        content = read_file(file_path)
+        if content.startswith("错误") or content == "文件不存在":
+            return content  # 直接返回读取错误信息
+        # 执行替换（全局替换）
+        new_content = content.replace(find_text, replace_text)
+        # 写回文件
+        write_result = create_file(file_path, new_content)
+        if write_result.startswith("错误"):
+            return write_result
+        return f"成功在文件{file_path}中完成替换，共替换{content.count(find_text)}处"  # 返回替换数量信息
+    except Exception as e:
+        return f"查找替换时发生错误: {str(e)}"
+
 
 FILE_TOOLS = [
     {
@@ -223,8 +259,32 @@ FILE_TOOLS = [
                 "required": ["source_path", "destination_path"],
             },
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "find_replace",
+            "description": "查找文件中指定文本并替换为新文本",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "要操作的文件路径",
+                    },
+                    "find_text": {
+                        "type": "string",
+                        "description": "需要查找的文本内容",
+                    },
+                    "replace_text": {
+                        "type": "string",
+                        "description": "要替换成的文本内容",
+                    }
+                },
+                "required": ["file_path", "find_text", "replace_text"],
+            },
+        }
     }
-
 ]
 
 
@@ -234,5 +294,6 @@ FILE_FUNCTIONS = {
     "create_file": create_file,
     "delete_file": delete_file,
     "create_directory": create_directory,
-    "copy_file_or_directory": copy_file_or_directory
+    "copy_file_or_directory": copy_file_or_directory,
+    "find_replace": find_replace
 }
