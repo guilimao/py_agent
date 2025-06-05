@@ -48,6 +48,25 @@ def main():
         system_prompt=get_system_prompt(),
         model_name=args.model
     )
+    
+    # +++ 新增：清理上次对话历史 +++
+    try:
+        # 安全删除对话记忆文件
+        if os.path.exists("conversation_memory.json"):
+            os.remove("conversation_memory.json")
+            print("已清理上次对话历史记录")
+        else:
+            print("未找到历史对话记录，无需清理")
+            
+        # 重置Agent内部状态（确保内存中没有残留）
+        agent.messages = [{"role": "system", "content": get_system_prompt()}]
+        agent.thinking_memory = []
+        agent.tool_call_memory = []
+        agent.last_saved_user_count = 0
+    except Exception as e:
+        print(f"清理历史时发生错误: {e}，将继续运行")
+    # --- 清理结束 ---
+    
     agent.run()
 
 
