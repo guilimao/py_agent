@@ -108,7 +108,7 @@ def _tree_to_text(
             new_prefix = prefix + ("    " if is_last else "│   ")
             text += _tree_to_text(value, new_prefix, is_last_item, content_map)
         else:  # 文件节点（value为文件路径，从content_map获取内容）
-            content = content_map.get(value, "[内容读取失败]\ ")
+            content = content_map.get(value, "[内容读取失败]")
             text += f"{line_prefix}{name}\\n"
             # 缩进4格展示文件内容（模拟代码块）
             content_lines = [f"    {line}" for line in content.split("\n")]
