@@ -168,13 +168,13 @@ CODE_CONTEXT_TOOLS = [
         "type": "function",
         "function": {
             "name": "extract_code_context",
-            "description": "提取指定Git仓库中被跟踪的代码文件（如.py、.js等）和配置文件（如.json、.yaml等）的上下文，返回带目录结构的文本（包含文件内容）",
+            "description": "提取指定文件夹中被git跟踪的文件，返回带目录结构的文本（包含文件内容）",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "directory": {
                         "type": "string",
-                        "description": "目标Git仓库目录路径（需在项目安全目录内）",
+                        "description": "目标Git仓库目录路径",
                     },
                     "file_types": {
                         "type": "object",
