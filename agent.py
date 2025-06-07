@@ -92,8 +92,11 @@ class Agent:
                     tool_calls_cache = {}
                     tool_calls = None
                     reasoning_content = ""
-                    is_first_reasoning_chunk = True
-                    is_first_chat_chunk = True
+                    
+                    # 使用更可靠的状态标志
+                    has_received_reasoning = False
+                    has_received_chat_content = False
+                    has_received_tool_calls = False
 
                     stream = self.client.chat.completions.create(
                         model=self.model_name,
@@ -104,25 +107,29 @@ class Agent:
                     )
 
                     for chunk in stream:
+                        # 处理思维链输出
                         if hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
-                            if is_first_reasoning_chunk:
+                            if not has_received_reasoning:
                                 print("<think>")
-                                is_first_reasoning_chunk = False
+                                has_received_reasoning = True
                             reasoning_content += chunk.choices[0].delta.reasoning_content
                             sys.stdout.write(chunk.choices[0].delta.reasoning_content)
                             sys.stdout.flush()
 
+                        # 处理普通聊天内容
                         elif chunk.choices[0].delta.content:
-                            if is_first_chat_chunk and not is_first_reasoning_chunk:
+                            if has_received_reasoning and not has_received_chat_content:
                                 print("</think>")
-                                is_first_chat_chunk = False
+                            has_received_chat_content = True
                             chunk_content = chunk.choices[0].delta.content
                             full_response += chunk_content
                             sys.stdout.write(chunk_content)
                             sys.stdout.flush()
 
+                        # 处理工具调用 - 现在无论是否收到聊天内容都处理
                         tool_calls = getattr(chunk.choices[0].delta, 'tool_calls', None)
-                        if tool_calls is not None and not is_first_chat_chunk:
+                        if tool_calls is not None:
+                            has_received_tool_calls = True
                             for tool_chunk in tool_calls if tool_calls else []:
                                 if tool_chunk.index not in tool_calls_cache:
                                     tool_calls_cache[tool_chunk.index] = {
@@ -144,10 +151,14 @@ class Agent:
                                 # 更新工具参数并显示进度
                                 if hasattr(tool_chunk.function, 'arguments') and tool_chunk.function.arguments:
                                     tool_calls_cache[tool_chunk.index]['function']['arguments'] += tool_chunk.function.arguments
-                                    # 显示参数接收进度（避免频繁输出）
+                                    # 显示参数接收进度
                                     if len(tool_calls_cache[tool_chunk.index]['function']['arguments']) % 50 == 0:
                                         sys.stdout.write(".")
                                         sys.stdout.flush()
+
+                    # 如果只有思维链没有聊天内容，需要关闭标签
+                    if has_received_reasoning and not has_received_chat_content:
+                        print("</think>")
 
                     # 结束参数接收提示
                     if tool_calls_cache:
@@ -159,6 +170,7 @@ class Agent:
                     if full_response:
                         self.messages.append({"role": "assistant", "content": full_response})
 
+                    # 处理工具调用 - 现在只要检测到工具调用就处理
                     if tool_calls_cache:
                         # 记录工具调用信息
                         current_tool_calls.update(tool_calls_cache)
