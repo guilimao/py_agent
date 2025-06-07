@@ -10,7 +10,7 @@ class Agent:
         client: OpenAI, 
         get_user_message: Callable[[], Tuple[str, bool]], 
         system_prompt: str, 
-        model_name: str = "doubao-1-5-thinking-pro-250415"
+        model_name: str = "deepseek-r1-250528"
     ):
         self.client = client
         self.get_user_message = get_user_message
