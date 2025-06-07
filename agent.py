@@ -57,14 +57,14 @@ class Agent:
             })
 
         try:
-            with open("conversation_memory.json", "r", encoding="utf-8") as f:
+            with open("config/conversation_memory.json", "r", encoding="utf-8") as f:
                 existing_data = json.load(f)
                 existing_conversations = existing_data.get("conversations", [])
         except (FileNotFoundError, json.JSONDecodeError):
             existing_conversations = []
 
         updated_conversations = existing_conversations + new_conversations
-        with open("conversation_memory.json", "w", encoding="utf-8") as f:
+        with open("config/conversation_memory.json", "w", encoding="utf-8") as f:
             json.dump({"conversations": updated_conversations}, f, ensure_ascii=False, indent=2)
 
         # 更新上次保存的用户消息数量

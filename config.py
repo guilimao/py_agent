@@ -2,7 +2,7 @@ import json
 
 def get_system_prompt():
     try:
-        with open('system_prompt.json', 'r', encoding='utf-8') as f:
+        with open('config/system_prompt.json', 'r', encoding='utf-8') as f:
             config = json.load(f)
             return config.get('system_prompt', "默认系统提示")
     except FileNotFoundError:

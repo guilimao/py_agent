@@ -52,8 +52,8 @@ def main():
     # +++ 新增：清理上次对话历史 +++
     try:
         # 安全删除对话记忆文件
-        if os.path.exists("conversation_memory.json"):
-            os.remove("conversation_memory.json")
+        if os.path.exists("config/conversation_memory.json"):
+            os.remove("config/conversation_memory.json")
             print("已清理上次对话历史记录")
         else:
             print("未找到历史对话记录，无需清理")
