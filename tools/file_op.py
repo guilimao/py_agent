@@ -1,41 +1,10 @@
 import os
-import json
-from typing import Optional, List
 import shutil
-
-
-def _get_allowed_directories() -> List[str]:
-    config_path = os.path.join(os.path.dirname(__file__), "..", "config", "allowed_directories.json")
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            allowed_dirs = json.load(f)  
-            return [os.path.abspath(dir_path) for dir_path in allowed_dirs]
-    except FileNotFoundError:
-        return [os.path.abspath("./")]  # 配置文件不存在时默认允许当前目录
-    except json.JSONDecodeError:
-        return [os.path.abspath("./")]  # 配置文件格式错误时默认允许当前目录
-    except Exception as e:
-        return [os.path.abspath("./")]  # 其他异常时默认允许当前目录
-
-ALLOWED_DIRECTORIES = _get_allowed_directories()  # 全局安全目录列表
-
-
-def _is_safe_path(path: str) -> bool:
-    requested_path = os.path.abspath(path)
-    for safe_dir in ALLOWED_DIRECTORIES:
-        safe_dir_abs = os.path.abspath(safe_dir)
-        common_path = os.path.commonpath([requested_path, safe_dir_abs])
-        if common_path == safe_dir_abs:
-            return True
-    return False
 
 
 def read_file(file_name: str) -> str:
     try:
-        if not _is_safe_path(file_name):
-            return "错误：尝试访问安全目录外的文件"
-            
-        with open(os.path.abspath(file_name), 'r', encoding='utf-8') as file:
+        with open(file_name, 'r', encoding='utf-8') as file:
             content = file.read()
         return content
     except FileNotFoundError:
@@ -46,10 +15,7 @@ def read_file(file_name: str) -> str:
 
 def list_directory(directory: str) -> str:
     try:
-        if not _is_safe_path(directory):
-            return "错误：尝试访问安全目录外的路径"
-            
-        items = os.listdir(os.path.abspath(directory))
+        items = os.listdir(directory)
         return "\n".join(items) if items else f"目录{directory}为空"
     except FileNotFoundError:
         return f"目录{directory}不存在"
@@ -57,11 +23,9 @@ def list_directory(directory: str) -> str:
         return f"列出目录时发生错误: {str(e)}"
     
 
+
 def create_file(file_name: str, file_content: str) -> str:
     try:
-        if not _is_safe_path(file_name):
-            return "错误：尝试在安全目录外创建文件"
-            
         abs_path = os.path.abspath(file_name)
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
         with open(abs_path, 'w', encoding='utf-8') as file:
@@ -71,11 +35,9 @@ def create_file(file_name: str, file_content: str) -> str:
         return f"创建文件时发生错误: {str(e)}"
     
 
+
 def delete_file(file_path: str) -> str: 
     try:
-        if not _is_safe_path(file_path):
-            return "错误：尝试删除安全目录外的文件"
-            
         os.remove(os.path.abspath(file_path))
         return "文件删除成功"
     except FileNotFoundError:
@@ -84,11 +46,9 @@ def delete_file(file_path: str) -> str:
         return f"删除文件时发生错误: {str(e)}"
     
 
+
 def create_directory(directory_path: str) -> str:
     try:
-        if not _is_safe_path(directory_path):
-            return "错误：尝试在安全目录外创建目录"
-            
         abs_path = os.path.abspath(directory_path)
         os.makedirs(abs_path, exist_ok=True)
         return f"目录{directory_path}创建成功"
@@ -96,11 +56,9 @@ def create_directory(directory_path: str) -> str:
         return f"目录{directory_path}创建出错：{str(e)}"
     
 
+
 def copy_file_or_directory(source_path: str, destination_path: str) -> str:
     try:
-        if not _is_safe_path(source_path) or not _is_safe_path(destination_path):
-            return "错误：源路径或目标路径位于安全目录外"
-
         source_abs = os.path.abspath(source_path)
         dest_abs = os.path.abspath(destination_path)
 
@@ -121,6 +79,7 @@ def copy_file_or_directory(source_path: str, destination_path: str) -> str:
         return f"复制文件/目录时出错: {str(e)}"
     
 
+
 def find_replace(file_path: str, find_text: str, replace_text: str) -> str:
     """查找file_path中与find_text相同的部分，将其替换为replace_text，并保存
 
@@ -130,20 +89,18 @@ def find_replace(file_path: str, find_text: str, replace_text: str) -> str:
     - replace_text (str) [Required]: 要替换成的文本内容
     """
     try:
-        # 检查路径安全性
-        if not _is_safe_path(file_path):
-            return "错误：文件路径位于安全目录外"
         # 读取文件内容
-        content = read_file(file_path)
-        if content.startswith("错误") or content == "文件不存在":
-            return content  # 直接返回读取错误信息
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
         # 执行替换（全局替换）
         new_content = content.replace(find_text, replace_text)
+        
         # 写回文件
-        write_result = create_file(file_path, new_content)
-        if write_result.startswith("错误"):
-            return write_result
-        return f"成功在文件{file_path}中完成替换，共替换{content.count(find_text)}处"  # 返回替换数量信息
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+            
+        return f"成功在文件{file_path}中完成替换，共替换{content.count(find_text)}处"
     except Exception as e:
         return f"查找替换时发生错误: {str(e)}"
 

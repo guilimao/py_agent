@@ -1,12 +1,11 @@
 import os
 import subprocess
 from typing import List, Dict, Optional
-from .file_op import _is_safe_path  # 复用现有安全检查函数
 
 # 默认支持的代码/配置文件类型（可扩展）
 DEFAULT_FILE_TYPES = {
     "code": [".py", ".js", ".java", ".cpp", ".c", ".ts", ".go", ".php", ".vue", ".tsx"],
-    "config": [".json", ".yaml", ".yml", ".ini", ".toml", ".env", ".properties"]
+    "config": [".json", ".yaml", ".yml", ".ini", ".toml", ".env", ".properties","txt"]
 }
 
 
@@ -130,9 +129,6 @@ def extract_code_context(
     Returns:
         str: 目录结构+文件内容的文本（树状格式）
     """
-    # 安全检查
-    if not _is_safe_path(directory):
-        return "错误：目标目录位于安全目录外"
     
     # 检查目录是否存在
     if not os.path.isdir(directory):
