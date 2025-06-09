@@ -362,7 +362,7 @@ COMMAND_TOOLS = [
                     "action": {
                         "type": "string",
                         "enum": ["start", "send", "terminate", "status"],
-                        "description": "操作类型：start=启动命令；send=对已有的会话发送输入；terminate=强制终止会话，正常情况下无须调用；status=观察运行中的会话的输出，相当于等待"
+                        "description": "操作类型：start=启动命令，自动返回所有结果；send=对已有的会话发送输入；terminate=强制终止会话，正常情况下无须调用；status=查看运行时间过长的会话的进一步信息"
                     },
                     "command": {
                         "type": "string",

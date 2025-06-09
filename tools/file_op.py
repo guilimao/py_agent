@@ -18,7 +18,7 @@ def create_file(file_name: str, file_content: str) -> str:
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
         with open(abs_path, 'w', encoding='utf-8') as file:
             file.write(file_content)
-        return "文件创建/修改成功！"
+        return f"文件{abs_path}创建/修改成功！"
     except Exception as e:
         return f"创建文件时发生错误: {str(e)}"
     
