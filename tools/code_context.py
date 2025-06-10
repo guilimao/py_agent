@@ -168,13 +168,13 @@ CODE_CONTEXT_TOOLS = [
         "type": "function",
         "function": {
             "name": "extract_code_context",
-            "description": "提取指定文件夹中被git跟踪的文件，返回带目录结构的文本（包含文件内容）",
+            "description": "提取指定文件夹中的文件，返回带目录结构的文本（包含文件内容）。当git存在时，仅提取被git追踪的文件",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "directory": {
                         "type": "string",
-                        "description": "目标Git仓库目录路径",
+                        "description": "目标目录路径",
                     },
                     "file_types": {
                         "type": "object",
