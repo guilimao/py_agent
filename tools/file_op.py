@@ -89,36 +89,35 @@ FILE_TOOLS = [
             },
         }
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "find_replace",
-            "description": "查找文件中指定文本并替换为新文本",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "file_path": {
-                        "type": "string",
-                        "description": "要操作的文件路径",
-                    },
-                    "find_text": {
-                        "type": "string",
-                        "description": "需要查找的文本内容",
-                    },
-                    "replace_text": {
-                        "type": "string",
-                        "description": "要替换成的文本内容",
-                    }
-                },
-                "required": ["file_path", "find_text", "replace_text"],
-            },
-        }
-    }
+#    {
+#        "type": "function",
+#        "function": {
+#            "name": "find_replace",
+#            "description": "查找文件中指定文本并替换为新文本",
+#           "parameters": {
+#                "properties": {
+#                    "file_path": {
+#                        "type": "string",
+#                        "description": "要操作的文件路径",
+#                    },
+#                    "find_text": {
+#                        "type": "string",
+#                        "description": "需要查找的文本内容",
+#                    },
+#                    "replace_text": {
+#                        "type": "string",
+#                        "description": "要替换成的文本内容",
+#                    }
+#                },
+#                "required": ["file_path", "find_text", "replace_text"],
+#            },
+#        }
+#    }
 ]
 
 
 FILE_FUNCTIONS = {
     "read_file": read_file,
     "create_file": create_file,
-    "find_replace": find_replace
+#    "find_replace": find_replace
 }
