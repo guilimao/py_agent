@@ -38,13 +38,14 @@ def find_replace(file_path: str, find_text: str, replace_text: str) -> str:
             content = f.read()
         
         # 执行替换（全局替换）
+        matched_times = content.count(find_text)
         new_content = content.replace(find_text, replace_text)
         
         # 写回文件
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
             
-        return f"成功在文件{file_path}中完成替换，共替换{content.count(find_text)}处"
+        return f"成功在文件{file_path}中完成替换，共替换{matched_times}处"
     except Exception as e:
         return f"查找替换时发生错误: {str(e)}"
 
