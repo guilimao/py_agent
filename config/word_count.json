@@ -1,0 +1,12 @@
+{
+  "total_user_input": 18,
+  "total_ai_response": 1,
+  "total_tool_response": 12330,
+  "conversations": [
+    {
+      "user_input_length": 18,
+      "ai_response_length": 1,
+      "tool_response_length": 12330
+    }
+  ]
+}
