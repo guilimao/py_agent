@@ -24,6 +24,7 @@ class Agent:
         for msg in self.messages:
             conv = {
                 "role": msg["role"],
+                "thinking": msg.get("thinking"),
                 "content": msg.get("content"),
             }
             # 添加工具调用信息（仅assistant角色有）

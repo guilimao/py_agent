@@ -1,5 +1,6 @@
 import os
 import subprocess
+import json
 from typing import List, Dict, Optional
 
 # 默认支持的代码/配置文件类型（可扩展）
@@ -88,51 +89,27 @@ def _build_directory_tree(
     return tree
 
 
-def _tree_to_text(
-    tree: Dict, 
-    prefix: str = "", 
-    is_last: bool = True, 
-    content_map: Dict[str, str] = {}
-) -> str:
-    """
-    将目录树字典转换为带缩进的树状文本格式
-    """
-    text = ""
-    items = list(tree.items())
-    for i, (name, value) in enumerate(items):
-        is_last_item = (i == len(items) - 1)
-        line_prefix = prefix + ("└── " if is_last else "├── ") if prefix else ""
-        if isinstance(value, dict):  # 目录节点
-            text += f"{line_prefix}{name}/\n"
-            new_prefix = prefix + ("    " if is_last else "│   ")
-            text += _tree_to_text(value, new_prefix, is_last_item, content_map)
-        else:  # 文件节点（value为文件路径，从content_map获取内容）
-            content = content_map.get(value, "[内容读取失败]")
-            text += f"{line_prefix}{name}\\n"
-            # 缩进4格展示文件内容（模拟代码块）
-            content_lines = [f"    {line}" for line in content.split("\n")]
-            text += "\n".join(content_lines) + "\n"
-    return text
-
-
 def extract_code_context(
     directory: str, 
     file_types: Optional[Dict[str, List[str]]] = None
 ) -> str:
     """
-    提取指定Git仓库中被跟踪的代码/配置文件上下文（带目录结构）
+    提取指定Git仓库中被跟踪的代码/配置文件上下文（返回结构化JSON）
     
     Args:
         directory (str): 目标Git仓库目录路径（需在安全目录内）
         file_types (Dict[str, List[str]]): 可选，自定义文件类型（如 {"code": [".py"], "config": [".json"]}）
     
     Returns:
-        str: 目录结构+文件内容的文本（树状格式）
+        str: 包含目录结构和文件内容的JSON字符串
     """
     
     # 检查目录是否存在
     if not os.path.isdir(directory):
-        return f"错误：目录 {directory} 不存在"
+        return json.dumps({
+            "status": "error",
+            "message": f"目录 {directory} 不存在"
+        }, ensure_ascii=False)
     
     # 筛选目标文件（优先使用Git跟踪的文件）
     target_files = _get_target_files(directory, file_types)
@@ -140,9 +117,15 @@ def extract_code_context(
         # 检查是否为Git仓库：若Git跟踪文件为空且非仓库，提示可能原因
         tracked_files = _get_git_tracked_files(directory)
         if not tracked_files:
-            return f"提示：目录 {directory} 下未找到代码/配置文件（或非Git仓库）"
+            return json.dumps({
+                "status": "warning",
+                "message": f"目录 {directory} 下未找到代码/配置文件（或非Git仓库）"
+            }, ensure_ascii=False)
         else:
-            return f"提示：Git仓库 {directory} 中未找到符合类型的代码/配置文件"
+            return json.dumps({
+                "status": "warning",
+                "message": f"Git仓库 {directory} 中未找到符合类型的代码/配置文件"
+            }, ensure_ascii=False)
     
     # 构建目录树结构
     directory_tree = _build_directory_tree(directory, target_files)
@@ -156,10 +139,16 @@ def extract_code_context(
         except Exception as e:
             content_map[file_path] = f"[读取失败：{str(e)}]"
     
-    # 生成最终文本（含目录结构和文件内容）
-    result = f"目录结构及文件内容（Git仓库: {os.path.abspath(directory)}）:\n"
-    result += _tree_to_text(directory_tree, content_map=content_map)
-    return result
+    # 生成最终JSON结果
+    result = {
+        "status": "success",
+        "repository_path": os.path.abspath(directory),
+        "directory_tree": directory_tree,
+        "file_contents": content_map
+    }
+    
+    # 使用json.dumps确保格式正确，处理特殊字符
+    return json.dumps(result, ensure_ascii=False, indent=2)
 
 
 # 工具元信息（供LLM识别）
@@ -168,7 +157,7 @@ CODE_CONTEXT_TOOLS = [
         "type": "function",
         "function": {
             "name": "extract_code_context",
-            "description": "提取指定文件夹中的文件，返回带目录结构的文本（包含文件内容）。当git存在时，仅提取被git追踪的文件",
+            "description": "提取指定文件夹中的文件，返回带目录结构的JSON（包含文件内容）。当git存在时，仅提取被git追踪的文件",
             "parameters": {
                 "type": "object",
                 "properties": {
