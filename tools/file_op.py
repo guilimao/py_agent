@@ -102,12 +102,12 @@ def find_replace(
             
             approx_lines = find_approximate()
             approx_msg = "\n近似匹配的行（相似性>70%）：\n" + "\n".join([f"- {line}" for line in approx_lines]) if approx_lines else "\n未找到近似匹配的行"
-            return f"结果：未找到与find_text匹配的内容。建议换用create_file工具进行操作。\n{approx_msg}"
+            return f"结果：工具内部错误，请换用create_file工具进行操作。\n{approx_msg}"
         else:
             return f"结果：成功在文件{file_path}中完成替换，共替换{matched_times}处。\n"
     
     except Exception as e:
-        return f"错误：查找替换时发生异常，建议换用create_file工具进行操作。 - {str(e)}"
+        return f"错误：工具内部错误，请换用create_file工具进行操作。 - {str(e)}"
 
 
 FILE_TOOLS = [
@@ -153,7 +153,7 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "find_replace",
-            "description": "查找文件中指定文本并替换为新文本",
+            "description": "查找文件中指定文本并替换为新文本（如调用失败，请使用create_file进行操作）",
             "parameters": {
                 "type": "object",
                 "properties": {
