@@ -22,7 +22,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="doubao-seed-1-6-thinking-250615",
+        default="qwen-plus-latest",
         help="指定使用的LLM模型名称"
     )
     args = parser.parse_args()

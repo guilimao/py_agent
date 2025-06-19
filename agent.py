@@ -11,7 +11,7 @@ class Agent:
         client: OpenAI, 
         get_user_message: Callable[[], Tuple[str, bool]], 
         system_prompt: str, 
-        model_name: str = "doubao-seed-1-6-thinking-250615"
+        model_name: str = "qwen-plus-latest"
     ):
         self.client = client
         self.get_user_message = get_user_message
@@ -196,5 +196,7 @@ class Agent:
         except Exception as e:
             print(f"\033[91m发生错误: {str(e)}\033[0m")
         finally:
+            # 程序结束时恢复终端颜色为默认值
+            print("\033[0m")
             # 程序结束时保存最后一次对话
             self.save_conversation()
