@@ -11,7 +11,7 @@ class Agent:
         client: OpenAI, 
         get_user_message: Callable[[], Tuple[str, bool]], 
         system_prompt: str, 
-        model_name: str = "qwen-plus-latest"
+        model_name: str = "qwen3-235b-a22b"
     ):
         self.client = client
         self.get_user_message = get_user_message
@@ -74,7 +74,8 @@ class Agent:
                         messages=self.messages,
                         stream=True,
                         tools=TOOLS,
-                        tool_choice="auto"
+                        tool_choice="auto",
+                        extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
                     )
 
                     for chunk in stream:

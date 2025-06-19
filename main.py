@@ -22,7 +22,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="qwen-plus-latest",
+        default="qwen3-235b-a22b",
         help="指定使用的LLM模型名称"
     )
     args = parser.parse_args()
