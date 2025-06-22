@@ -4,7 +4,7 @@ import json
 from openai import OpenAI
 from agent import Agent
 from config import get_system_prompt
-from input_handler import get_user_message
+from frontends import CommandlineFrontend
 
 def load_provider_config():
     with open("config/provider_config.json", "r", encoding="utf-8") as f:
@@ -22,7 +22,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="qwen3-235b-a22b",
+        default="deepseek-r1-250528",
         help="指定使用的LLM模型名称"
     )
     args = parser.parse_args()
@@ -42,9 +42,12 @@ def main():
         base_url=config["base_url"]
     )
 
+    # 创建命令行前端实例
+    frontend = CommandlineFrontend()
+    
     agent = Agent(
         client=client,
-        get_user_message=get_user_message,
+        frontend=frontend,
         system_prompt=get_system_prompt(),
         model_name=args.model
     )

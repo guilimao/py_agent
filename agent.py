@@ -2,6 +2,7 @@ from openai import OpenAI
 import sys
 import json
 from typing import Callable, Tuple
+from frontends import FrontendInterface
 import os
 from tools import TOOL_FUNCTIONS, TOOLS
 
@@ -9,12 +10,12 @@ class Agent:
     def __init__(
         self, 
         client: OpenAI, 
-        get_user_message: Callable[[], Tuple[str, bool]], 
+        frontend: FrontendInterface, 
         system_prompt: str, 
         model_name: str = "qwen3-235b-a22b"
     ):
         self.client = client
-        self.get_user_message = get_user_message
+        self.frontend = frontend
         self.messages = [{"role": "system", "content": system_prompt}]
         self.model_name = model_name  
 
@@ -45,10 +46,11 @@ class Agent:
 
     def run(self):
         try:
-            print("\n对话开始，输入‘退出’结束对话")
+            self.frontend.start_session()
+            self.frontend.output('info', "\n对话开始，输入‘退出’结束对话")
             while True:
                 # 获取用户输入
-                user_input, has_input = self.get_user_message()
+                user_input, has_input = self.frontend.get_input()
                 if not has_input or user_input.lower() == '退出':
                     break
                 # 添加用户输入到对话上下文
@@ -56,7 +58,7 @@ class Agent:
                 # 【用户输入后立即保存】
                 self.save_conversation()
 
-                print()
+                self.frontend.output('info', "")
 
                 while True:
                     full_response = ""  # LLM自然语言输出
@@ -82,21 +84,22 @@ class Agent:
                         # 处理思考过程（思维链）
                         if hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
                             if not has_received_reasoning:
-                                print("\n\033[90m思考过程：")
+                                self.frontend.output('info', "\n")
+                                self.frontend.output('thinking', "思考过程：")
                                 has_received_reasoning = True
                             reasoning_content += chunk.choices[0].delta.reasoning_content
-                            sys.stdout.write(chunk.choices[0].delta.reasoning_content)
-                            sys.stdout.flush()
+                            self.frontend.output('thinking', chunk.choices[0].delta.reasoning_content)
 
                         # 处理自然语言内容
                         elif chunk.choices[0].delta.content:
                             if has_received_reasoning and not has_received_chat_content:
-                                print("\033[0m")  # 恢复默认颜色
-                            has_received_chat_content = True
-                            chunk_content = chunk.choices[0].delta.content
-                            full_response += chunk_content
-                            sys.stdout.write(chunk_content)
-                            sys.stdout.flush()
+                                # 思考模式结束，恢复默认颜色
+                                has_received_chat_content = True
+                            
+                            if has_received_chat_content:
+                                chunk_content = chunk.choices[0].delta.content
+                                full_response += chunk_content
+                                self.frontend.output('content', chunk_content)
 
                         # 处理工具调用
                         tool_calls = getattr(chunk.choices[0].delta, 'tool_calls', None)
@@ -110,7 +113,7 @@ class Agent:
                                     }
                                     # 首次检测到工具调用时提示
                                     if hasattr(tool_chunk.function, 'name') and tool_chunk.function.name:
-                                        print(f"\n\033[94m检测到工具调用：{tool_chunk.function.name}\033[0m")
+                                        self.frontend.output('tool_call', tool_chunk.function.name)
 
                                 # 更新工具ID、名称、参数
                                 if tool_chunk.id:
@@ -121,13 +124,10 @@ class Agent:
                                     tool_calls_cache[tool_chunk.index]['function']['arguments'] += tool_chunk.function.arguments
                                     # 显示参数接收进度（每50字符一个点）
                                     if len(tool_calls_cache[tool_chunk.index]['function']['arguments']) % 50 == 0:
-                                        sys.stdout.write(".")
-                                        sys.stdout.flush()
+                                        self.frontend.output('info', ".")
 
                     # 关闭思考过程的灰色字体
-                    if has_received_reasoning and not has_received_chat_content:
-                        print("\033[0m")
-
+                    
                     # 处理自然语言输出（若有）
                     if full_response:
                         self.messages.append({
@@ -140,7 +140,7 @@ class Agent:
 
                     # 处理工具调用（若有）
                     if tool_calls_cache:
-                        print("\n工具参数接收完成，开始执行...")
+                        self.frontend.output('info', "\n工具参数接收完成，开始执行...")
                         # 添加工具调用指令到对话上下文
                         self.messages.append({
                             "role": "assistant",
@@ -180,24 +180,23 @@ class Agent:
                                     })
                                     # 【工具返回结果后立即保存】
                                     self.save_conversation()
-                                    print(f"\n\033[92m工具执行成功：{function_name}\033[0m")
-                                    print(f"\033[90m工具返回结果：{function_response}\033[0m")
+                                    self.frontend.output('tool_result', f"工具执行成功：{function_name}", result=function_response)
                                 except Exception as e:
-                                    print(f"\033[91m工具执行失败：{function_name} - {str(e)}\033[0m")
+                                    self.frontend.output('error', f"工具执行失败：{function_name} - {str(e)}")
                             else:
-                                print(f"\033[91m未找到工具函数：{function_name}\033[0m")
+                                self.frontend.output('error', f"未找到工具函数：{function_name}")
                     else:
                         # 无工具调用时结束当前轮次
                         break
 
-                    sys.stdout.write("\n")
+                    self.frontend.output('info', "\n")
 
-                sys.stdout.write("\n")
+                self.frontend.output('info', "\n")
 
         except Exception as e:
-            print(f"\033[91m发生错误: {str(e)}\033[0m")
+            self.frontend.output('error', f"发生错误: {str(e)}")
         finally:
             # 程序结束时恢复终端颜色为默认值
-            print("\033[0m")
+            self.frontend.end_session()
             # 程序结束时保存最后一次对话
             self.save_conversation()
