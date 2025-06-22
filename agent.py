@@ -44,6 +44,15 @@ class Agent:
         with open("config/conversation_memory.json", "w", encoding="utf-8") as f:
             json.dump({"conversations": conversations}, f, ensure_ascii=False, indent=2)
 
+    def filter_thinking_field(self, messages):
+        """过滤掉消息列表中的thinking字段"""
+        filtered_messages = []
+        for message in messages:
+            new_message = message.copy()
+            new_message.pop("thinking", None)
+            filtered_messages.append(new_message)
+        return filtered_messages
+
     def run(self):
         try:
             self.frontend.start_session()
@@ -68,10 +77,13 @@ class Agent:
                     has_received_reasoning = False
                     has_received_chat_content = False
 
+                    # 过滤掉thinking字段
+                    filtered_messages = self.filter_thinking_field(self.messages)
+
                     # 调用LLM生成响应（流式）
                     stream = self.client.chat.completions.create(
                         model=self.model_name,
-                        messages=self.messages,
+                        messages=filtered_messages,
                         stream=True,
                         tools=TOOLS,
                         tool_choice="auto",
