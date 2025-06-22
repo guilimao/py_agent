@@ -55,7 +55,6 @@ class Agent:
                     break
                 # 添加用户输入到对话上下文
                 self.messages.append({"role": "user", "content": user_input})
-                # 【用户输入后立即保存】
                 self.save_conversation()
 
                 self.frontend.output('info', "")
@@ -68,7 +67,6 @@ class Agent:
                     # 状态标志
                     has_received_reasoning = False
                     has_received_chat_content = False
-                    has_received_tool_calls = False
 
                     # 调用LLM生成响应（流式）
                     stream = self.client.chat.completions.create(
@@ -84,8 +82,6 @@ class Agent:
                         # 处理思考过程（思维链）
                         if hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
                             if not has_received_reasoning:
-                                self.frontend.output('info', "\n")
-                                self.frontend.output('thinking', "思考过程：")
                                 has_received_reasoning = True
                             reasoning_content += chunk.choices[0].delta.reasoning_content
                             self.frontend.output('thinking', chunk.choices[0].delta.reasoning_content)
@@ -104,7 +100,6 @@ class Agent:
                         # 处理工具调用
                         tool_calls = getattr(chunk.choices[0].delta, 'tool_calls', None)
                         if tool_calls is not None:
-                            has_received_tool_calls = True
                             for tool_chunk in tool_calls if tool_calls else []:
                                 if tool_chunk.index not in tool_calls_cache:
                                     tool_calls_cache[tool_chunk.index] = {
@@ -124,10 +119,8 @@ class Agent:
                                     tool_calls_cache[tool_chunk.index]['function']['arguments'] += tool_chunk.function.arguments
                                     # 显示参数接收进度（每50字符一个点）
                                     if len(tool_calls_cache[tool_chunk.index]['function']['arguments']) % 50 == 0:
-                                        self.frontend.output('info', ".")
+                                        self.frontend.output('tool_progress', ".")
 
-                    # 关闭思考过程的灰色字体
-                    
                     # 处理自然语言输出（若有）
                     if full_response:
                         self.messages.append({
@@ -135,7 +128,6 @@ class Agent:
                             "content": full_response,
                             "thinking": reasoning_content  # 保存思考过程
                         })
-                        # 【LLM自然语言输出后立即保存】
                         self.save_conversation()
 
                     # 处理工具调用（若有）
@@ -157,7 +149,6 @@ class Agent:
                             ],
                             "thinking": reasoning_content  # 保存思考过程
                         })
-                        # 【LLM工具调用输出后立即保存】
                         self.save_conversation()
 
                         # 执行工具并记录结果
@@ -178,7 +169,6 @@ class Agent:
                                         "content": str(function_response),
                                         "tool_call_id": tool_call['id']
                                     })
-                                    # 【工具返回结果后立即保存】
                                     self.save_conversation()
                                     self.frontend.output('tool_result', f"工具执行成功：{function_name}", result=function_response)
                                 except Exception as e:

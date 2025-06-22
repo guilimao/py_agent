@@ -47,6 +47,11 @@ class CommandlineFrontend(FrontendInterface):
         elif message_type == "tool_call":
             print(f"\n\033[94m检测到工具调用：{content}\033[0m")
         
+        # 工具调用进度 - 灰色
+        elif message_type == "tool_progress":
+            sys.stdout.write('\033[90m' + content + '\033[0m')
+            sys.stdout.flush()
+        
         # 工具结果 - 绿色
         elif message_type == "tool_result":
             print(f"\n\033[92m{content}\033[0m")
