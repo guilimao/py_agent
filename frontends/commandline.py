@@ -47,9 +47,9 @@ class CommandlineFrontend(FrontendInterface):
         elif message_type == "tool_call":
             print(f"\n\033[94m检测到工具调用：{content}\033[0m")
         
-        # 工具调用进度 - 灰色
+        # 工具调用进度 - 黄色
         elif message_type == "tool_progress":
-            sys.stdout.write('\033[90m' + content + '\033[0m')
+            sys.stdout.write('\033[93m' + content + '\033[0m')
             sys.stdout.flush()
         
         # 工具结果 - 绿色
@@ -57,10 +57,14 @@ class CommandlineFrontend(FrontendInterface):
             print(f"\n\033[92m{content}\033[0m")
             if "result" in kwargs:
                 print(f"\033[90m工具返回结果：{kwargs['result']}\033[0m")
+            if self.thinking_mode:
+                self.thinking_mode = False
         
         # 错误信息 - 红色
         elif message_type == "error":
             print(f"\n\033[91m{content}\033[0m")
+            if self.thinking_mode:
+                self.thinking_mode = False
         
         # 常规信息
         elif message_type == "info":

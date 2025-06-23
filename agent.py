@@ -169,7 +169,7 @@ class Agent:
                             try:
                                 function_args = json.loads(tool_call['function']['arguments'])
                             except json.JSONDecodeError:
-                                print(f"\033[91m工具参数解析失败：{tool_call['function']['arguments']}\033[0m")
+                                self.frontend.output("error",f"工具参数解析失败：{tool_call['function']['arguments']}")
                                 continue
 
                             if function_name in TOOL_FUNCTIONS:
