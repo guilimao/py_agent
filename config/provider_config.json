@@ -13,5 +13,11 @@
         "api_key_env": "DASHSCOPE_API_KEY",
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "models": ["qwen-max-latest","qwen-plus-latest", "qwen3-235b-a22b","qwen3-32b","qwen-turbo-latest"]
+    },
+    "tencent": {
+        "api_key_env": "HUNYUAN_API_KEY",
+        "base_url": "https://api.hunyuan.cloud.tencent.com/v1",
+        "models": ["hunyuan-t1-latest","hunyuan-turboS"]
+
     }
 }

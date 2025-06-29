@@ -22,7 +22,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="deepseek-reasoner",
+        default="hunyuan-t1-latest",
         help="指定使用的LLM模型名称"
     )
     args = parser.parse_args()
@@ -36,12 +36,11 @@ def main():
 
     if args.model not in config["models"]:
         raise ValueError(f"模型 {args.model} 未在提供商 {provider} 的支持模型列表中，可用模型：{config['models']}")
-
+    
     client = OpenAI(
         api_key=os.getenv(config["api_key_env"]),
         base_url=config["base_url"]
     )
-
     # 创建命令行前端实例
     frontend = CommandlineFrontend()
     
