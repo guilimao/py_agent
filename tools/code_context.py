@@ -5,7 +5,7 @@ from typing import List, Dict, Optional
 
 # 默认支持的代码/配置文件类型（可扩展）
 DEFAULT_FILE_TYPES = {
-    "code": [".py", ".js", ".java", ".cpp", ".c", ".ts", ".go", ".php", ".vue", ".tsx"],
+    "code": [".py", ".js", ".java", ".cpp", ".c", ".ts", ".go", ".php", ".vue", ".tsx",".bas"],
     "config": [".json", ".yaml", ".yml", ".ini", ".toml", ".env", ".properties","txt"]
 }
 

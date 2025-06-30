@@ -5,6 +5,7 @@
 import sys
 from typing import Tuple
 from .base import FrontendInterface
+from .commandline_input import get_multiline_input
 
 class CommandlineFrontend(FrontendInterface):
     """
@@ -15,13 +16,9 @@ class CommandlineFrontend(FrontendInterface):
         
     def get_input(self) -> Tuple[str, bool]:
         """
-        获取命令行用户输入
+        获取多行用户输入
         """
-        try:
-            line = input("\n用户输入：").strip()
-            return line, True
-        except (EOFError, KeyboardInterrupt):
-            return "", False
+        return get_multiline_input()
     
     def output(self, message_type: str, content: str, **kwargs) -> None:
         """

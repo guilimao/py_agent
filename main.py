@@ -22,7 +22,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="hunyuan-t1-latest",
+        default="deepseek-r1-250528",
         help="指定使用的LLM模型名称"
     )
     args = parser.parse_args()
