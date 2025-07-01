@@ -5,6 +5,7 @@ from typing import Callable, Tuple
 from frontends import FrontendInterface
 import os
 from tools import TOOL_FUNCTIONS, TOOLS
+import conversation_saver
 
 class Agent:
     def __init__(
@@ -19,30 +20,6 @@ class Agent:
         self.messages = [{"role": "system", "content": system_prompt}]
         self.model_name = model_name  
 
-    def save_conversation(self):
-        """保存所有对话消息到文件（包括用户输入、LLM输出、工具返回）"""
-        conversations = []
-        for msg in self.messages:
-            conv = {
-                "role": msg["role"],
-                "thinking": msg.get("thinking"),
-                "content": msg.get("content"),
-            }
-            # 添加工具调用信息（仅assistant角色有）
-            if "tool_calls" in msg:
-                conv["tool_calls"] = msg["tool_calls"]
-            # 添加思考过程（仅assistant角色有）
-            if "thinking" in msg:
-                conv["thinking"] = msg["thinking"]
-            # 添加工具调用ID（仅tool角色有）
-            if "tool_call_id" in msg:
-                conv["tool_call_id"] = msg["tool_call_id"]
-            conversations.append(conv)
-        
-        # 保存对话历史到config/conversation_memory.json
-        os.makedirs("config", exist_ok=True)
-        with open("config/conversation_memory.json", "w", encoding="utf-8") as f:
-            json.dump({"conversations": conversations}, f, ensure_ascii=False, indent=2)
 
     def filter_thinking_field(self, messages):
         """过滤掉消息列表中的thinking字段"""
@@ -64,7 +41,7 @@ class Agent:
                     break
                 # 添加用户输入到对话上下文
                 self.messages.append({"role": "user", "content": user_input})
-                self.save_conversation()
+                conversation_saver.save_conversation(self.messages)
 
                 self.frontend.output('info', "")
 
@@ -140,7 +117,7 @@ class Agent:
                             "content": full_response,
                             "thinking": reasoning_content  # 保存思考过程
                         })
-                        self.save_conversation()
+                        conversation_saver.save_conversation(self.messages)
 
                     # 处理工具调用（若有）
                     if tool_calls_cache:
@@ -161,7 +138,7 @@ class Agent:
                             ],
                             "thinking": reasoning_content  # 保存思考过程
                         })
-                        self.save_conversation()
+                        conversation_saver.save_conversation(self.messages)
 
                         # 执行工具并记录结果
                         for tool_call in tool_calls_cache.values():
@@ -181,7 +158,7 @@ class Agent:
                                         "content": str(function_response),
                                         "tool_call_id": tool_call['id']
                                     })
-                                    self.save_conversation()
+                                    conversation_saver.save_conversation(self.messages)
                                     self.frontend.output('tool_result', f"工具执行成功：{function_name}", result=function_response)
                                 except Exception as e:
                                     self.frontend.output('error', f"工具执行失败：{function_name} - {str(e)}")
@@ -201,4 +178,4 @@ class Agent:
             # 程序结束时恢复终端颜色为默认值
             self.frontend.end_session()
             # 程序结束时保存最后一次对话
-            self.save_conversation()
+            conversation_saver.save_conversation(self.messages)
