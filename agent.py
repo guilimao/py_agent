@@ -1,11 +1,8 @@
 from openai import OpenAI
-import sys
-import json
-from typing import Callable, Tuple
 from frontends import FrontendInterface
-import os
 from tools import TOOL_FUNCTIONS, TOOLS
 import conversation_saver
+import json_repair
 
 class Agent:
     def __init__(
@@ -144,9 +141,9 @@ class Agent:
                         for tool_call in tool_calls_cache.values():
                             function_name = tool_call['function']['name']
                             try:
-                                function_args = json.loads(tool_call['function']['arguments'])
-                            except json.JSONDecodeError:
-                                self.frontend.output("error",f"工具参数解析失败：{tool_call['function']['arguments']}")
+                                function_args = json_repair.loads(tool_call['function']['arguments'])
+                            except Exception as e:
+                                self.frontend.output("error", f"工具参数解析失败：{tool_call['function']['arguments']} - {str(e)}")
                                 continue
 
                             if function_name in TOOL_FUNCTIONS:

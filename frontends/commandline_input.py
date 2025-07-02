@@ -32,7 +32,7 @@ def get_multiline_input() -> Tuple[str, bool]:
             key_bindings=bindings
         )
 
-        print("\n\033[36m输入内容 (Ctrl+\\ 发送):\033[0m")
+        print("\n\033[36m输入内容 (Ctrl+\\ 发送，ENTER换行):\033[0m")
         text = session.prompt('> ')
 
         return text, True
