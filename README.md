@@ -18,21 +18,11 @@ PyAgent 是一个基于 Python 实现的命令行 LLM（大型语言模型）代
 ### 环境准备
 1. 安装依赖库（首次运行前执行）：
 ```bash
-pip install openai
+pip install -r requirements.txt
 ```
 
 2. 配置API Key：
-   - 不同模型需要在环境变量中配置对应提供商的API Key（如使用火山引擎模型需配置`ARK_API_KEY`，使用深度求索模型需配置`DEEPSEEK_API_KEY`）
-   - **Windows**：在命令行执行（临时生效）
-     ```bash
-     set 对应API_KEY环境变量名=your_api_key
-     ```
-     或通过系统环境变量设置（永久生效）：控制面板 -> 系统和安全 -> 系统 -> 高级系统设置 -> 环境变量 -> 用户变量中添加对应键值对。
-   - **macOS/Linux**：在终端执行（临时生效）
-     ```bash
-     export 对应API_KEY环境变量名=your_api_key
-     ```
-     或添加到 `~/.bashrc` 或 `~/.zshrc` 文件中（永久生效）。
+   - 不同模型需要在环境变量中配置对应提供商的API Key（参照`config/provider_config.json`中的命名格式）
 
 ### 启动代理
 ```bash
@@ -40,11 +30,9 @@ python main.py [--model 模型名称]
 ```
 
 参数说明：
-- `--model`（可选）：指定使用的LLM模型名称，默认值为`doubao-1-5-thinking-pro-250415`（火山引擎模型）
-- 支持模型示例：
-  - 火山引擎：`doubao-1-5-thinking-pro-250415`、`deepseek-r1-250120`、`deepseek-v3-250324`
-  - 深度求索：`deepseek-chat`、`deepseek-reasoner`
+- `--model`（可选）：指定使用的LLM模型名称
 - 具体可用模型需与`config/provider_config.json`中配置的提供商支持模型列表匹配
+- 你可以仿照`config/provider_config.json`中的格式，添加自己所需的模型提供商和模型名称
 
 示例：
 ```bash
@@ -74,14 +62,14 @@ python main.py --model deepseek-chat
   - [x] 目录列表
   - [x] 文件创建/修改/删除
   - [x] 文件路径权限控制
-  - [ ] 大文件的差分修改
+  - [x] 大文件的差分修改
   - [ ] ...（更多文件操作）
-
-- [x] 命令行执行
 
 ## 致谢
 
 本项目灵感来源于 Thorsten Ball 的 [How to Build an Agent](https://ampcode.com/how-to-build-an-agent)，但使用 Python 重写。
+
+使用了 Stefano Baccianella 的 [Json Repair](https://github.com/mangiucugna/json_repair) 项目
 
 ---
 
