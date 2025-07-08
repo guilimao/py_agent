@@ -85,24 +85,7 @@ def find_replace(
         
 
         if matched_times == 0:
-            # 查找近似匹配的行
-            def find_approximate():
-                lines = content.split('\n')
-                approx = []
-                for line in lines:
-
-                    find_processed = find_text
-                    # 计算相似性
-                    if not find_processed:
-                        continue
-                    similarity = difflib.SequenceMatcher(None, line, find_processed).ratio()
-                    if similarity > 0.7:
-                        approx.append(line)
-                return approx[:3]  # 取前3个最相似的
-            
-            approx_lines = find_approximate()
-            approx_msg = "\n近似匹配的行（相似性>70%）：\n" + "\n".join([f"- {line}" for line in approx_lines]) if approx_lines else "\n未找到近似匹配的行"
-            return f"结果：工具内部错误，请换用create_file工具进行操作。{file_path}中\n{approx_msg}"
+            return f"结果：工具内部错误，请换用create_file工具进行操作。"
         else:
             return f"结果：成功在文件{file_path}中完成替换，共替换{matched_times}处。\n"
     
@@ -115,13 +98,13 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "读取指定文件的内容（建议先在目录下查看文件的完整名称）",
+            "description": "读取指定文件的内容",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_name": {
                         "type": "string",
-                        "description": "文件名",
+                        "description": "文件路径",
                     },
                 },
                 "required": ["file_name"],
@@ -132,17 +115,17 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "create_file",
-            "description": "创建新文件或更新现有文件内容。支持直接传入JSON对象/数组（会自动格式化写入）或字符串。",
+            "description": "创建新文件或更新现有文件内容。",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_name": {
                         "type": "string",
-                        "description": "目标文件的路径（含文件名）",
+                        "description": "目标文件路径",
                     },
                     "file_content": {
                         "type": ["string", "object", "array"],
-                        "description": "文件内容：可以是字符串（直接写入）、JSON对象/数组（自动格式化）",
+                        "description": "文件内容",
                     },
                 },
                 "required": ["file_name", "file_content"],
@@ -153,21 +136,21 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "find_replace",
-            "description": "查找文件中指定文本并替换为新文本（如调用失败，请使用create_file进行操作）",
+            "description": "查找文件中指定文本并替换为新文本",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_path": {
                         "type": "string",
-                        "description": "要操作的文件路径",
+                        "description": "文件路径",
                     },
                     "find_text": {
                         "type": "string",
-                        "description": "需要查找的文本内容",
+                        "description": "需查找的文本内容",
                     },
                     "replace_text": {
                         "type": "string",
-                        "description": "要替换成的文本内容",
+                        "description": "替换成的文本内容",
                     },
                 },
                 "required": ["file_path", "find_text", "replace_text"],
