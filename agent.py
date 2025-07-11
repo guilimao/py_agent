@@ -49,7 +49,6 @@ class Agent:
 
                     # 状态标志
                     has_received_reasoning = False
-                    has_received_chat_content = False
 
                     # 过滤掉thinking字段
                     filtered_messages = self.filter_thinking_field(self.messages)
@@ -74,14 +73,10 @@ class Agent:
 
                         # 处理自然语言内容
                         elif chunk.choices[0].delta.content:
-                            if has_received_reasoning and not has_received_chat_content:
-                                # 思考模式结束，恢复默认颜色
-                                has_received_chat_content = True
-                            
-                            if has_received_chat_content:
-                                chunk_content = chunk.choices[0].delta.content
-                                full_response += chunk_content
-                                self.frontend.output('content', chunk_content)
+                            # 无论是否处于思考模式都直接输出内容
+                            chunk_content = chunk.choices[0].delta.content
+                            full_response += chunk_content
+                            self.frontend.output('content', chunk_content)
 
                         # 处理工具调用
                         tool_calls = getattr(chunk.choices[0].delta, 'tool_calls', None)

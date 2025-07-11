@@ -19,5 +19,10 @@
         "base_url": "https://api.hunyuan.cloud.tencent.com/v1",
         "models": ["hunyuan-t1-latest","hunyuan-turbos-latest"]
 
+    },
+    "moonshot": {
+        "api_key_env": "MOONSHOT_API_KEY",
+        "base_url": "https://api.moonshot.cn/v1",
+        "models": ["kimi-k2-0711-preview","moonshot-v1-128k"]
     }
 }

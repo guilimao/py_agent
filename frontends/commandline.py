@@ -27,7 +27,7 @@ class CommandlineFrontend(FrontendInterface):
         # 思考过程 - 灰色
         if message_type == "thinking":
             if not self.thinking_mode:
-                print("\n\033[90m思考过程：")
+                print("\n\033[90m思考过程：", end="")
                 self.thinking_mode = True
             sys.stdout.write(content)
             sys.stdout.flush()
@@ -35,42 +35,59 @@ class CommandlineFrontend(FrontendInterface):
         # 自然语言内容 - 默认颜色
         elif message_type == "content":
             if self.thinking_mode:
-                print("\033[0m")  # 结束思考模式
+                print("\033[0m", end="")  # 结束思考模式
                 self.thinking_mode = False
             sys.stdout.write(content)
             sys.stdout.flush()
         
         # 工具调用 - 蓝色
         elif message_type == "tool_call":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
             print(f"\n\033[94m检测到工具调用：{content}\033[0m")
         
         # 工具调用进度 - 黄色
         elif message_type == "tool_progress":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
             sys.stdout.write('\033[93m' + content + '\033[0m')
             sys.stdout.flush()
         
         # 工具结果 - 绿色
         elif message_type == "tool_result":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
             print(f"\n\033[92m{content}\033[0m")
             if "result" in kwargs:
                 print(f"\033[90m工具返回结果：{kwargs['result']}\033[0m")
-            if self.thinking_mode:
-                self.thinking_mode = False
         
         # 错误信息 - 红色
         elif message_type == "error":
-            print(f"\n\033[91m{content}\033[0m")
             if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
                 self.thinking_mode = False
+            print(f"\n\033[91m{content}\033[0m")
         
         # 常规信息
         elif message_type == "info":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
             print(content)
         
         # 默认输出
         else:
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
             print(content)
     
     def end_session(self) -> None:
         """结束会话时重置终端颜色"""
+        if self.thinking_mode:
+            print("\033[0m", end="")  # 确保重置颜色
+            self.thinking_mode = False
         print("\033[0m")  # 确保重置终端颜色
