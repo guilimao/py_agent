@@ -317,7 +317,7 @@ def command_session(action: str, command: str = None, session_id: str = None, in
                 accumulated_output += new_output
                 break
                 
-            time.sleep(0.5)  # 每次等待0.5秒
+            time.sleep(2)  # 每次等待2秒
             new_output, status = SESSION_MANAGER.get_output_with_status(sid)
             accumulated_output += new_output
         
@@ -355,14 +355,14 @@ COMMAND_TOOLS = [
         "type": "function",
         "function": {
             "name": "command_session",
-            "description": "用于执行命令行指令，获取输出内容，支持对已有会话进行进一步操作",
+            "description": "用于执行命令行指令，支持建立持久会话",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
                         "enum": ["start", "send", "terminate", "status"],
-                        "description": "操作类型：start=启动命令，自动返回所有结果；send=对已有的会话发送输入；terminate=强制终止会话，正常情况下无须调用；status=查看运行时间过长的会话的进一步信息"
+                        "description": "操作类型：start=启动命令，返回执行结果；send=对已有的会话发送输入；terminate=强制终止会话；status=查看指定会话的进一步信息"
                     },
                     "command": {
                         "type": "string",
