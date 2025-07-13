@@ -151,11 +151,21 @@ class Agent:
                                         "tool_call_id": tool_call['id']
                                     })
                                     conversation_saver.save_conversation(self.messages)
-                                    self.frontend.output('tool_result', f"工具执行成功：{function_name}", result=function_response)
+                                    
+                                    # 增强工具结果展示，包含明确的操作确认
+                                    if function_name == "create_file":
+                                        self.frontend.output('tool_result', f"✅ 文件操作完成：{function_name}", result=function_response)
+                                    elif function_name == "read_file":
+                                        self.frontend.output('tool_result', f"📖 文件读取完成：{function_name}", result=function_response)
+                                    elif function_name == "find_replace":
+                                        self.frontend.output('tool_result', f"🔄 文本替换完成：{function_name}", result=function_response)
+                                    else:
+                                        self.frontend.output('tool_result', f"✅ 工具执行成功：{function_name}", result=function_response)
+                                        
                                 except Exception as e:
-                                    self.frontend.output('error', f"工具执行失败：{function_name} - {str(e)}")
+                                    self.frontend.output('error', f"❌ 工具执行失败：{function_name} - {str(e)}")
                             else:
-                                self.frontend.output('error', f"未找到工具函数：{function_name}")
+                                self.frontend.output('error', f"❌ 未找到工具函数：{function_name}")
                     else:
                         # 无工具调用时结束当前轮次
                         break

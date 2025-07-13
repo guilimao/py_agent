@@ -35,7 +35,7 @@ class CommandlineFrontend(FrontendInterface):
         # 自然语言内容 - 默认颜色
         elif message_type == "content":
             if self.thinking_mode:
-                print("\033[0m", end="")  # 结束思考模式
+                print("\n\033[0m", end="")  # 结束思考模式
                 self.thinking_mode = False
             sys.stdout.write(content)
             sys.stdout.flush()
