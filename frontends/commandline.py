@@ -71,12 +71,37 @@ class CommandlineFrontend(FrontendInterface):
                 self.thinking_mode = False
             print(f"\n\033[91m{content}\033[0m")
         
+        # 用户输入token信息 - 品红色
+        elif message_type == "user_input_tokens":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
+            print(f"\n\033[95m{content}\033[0m\n")
+        
+        # 轮次token统计 - 品红色
+        elif message_type == "round_tokens":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
+            print(f"\n\n\033[95m{content}\033[0m")
+        
+        # 总token统计摘要 - 品红色
+        elif message_type == "token_summary":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
+            print(f"\033[95m{content}\033[0m")
+        
         # 常规信息
         elif message_type == "info":
             if self.thinking_mode:
                 print("\033[0m", end="")  # 确保重置颜色
                 self.thinking_mode = False
-            print(content)
+            # 为token信息添加特殊格式
+            if "tokens:" in content or "token" in content.lower():
+                print(f"\n\033[96m{content}\033[0m")  # 青色高亮显示token信息
+            else:
+                print(content)
         
         # 默认输出
         else:
