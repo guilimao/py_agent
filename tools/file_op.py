@@ -141,7 +141,7 @@ def create_file(file_name: str, file_content: Union[str, Dict, List]) -> str:
 📝 内容摘要：
 {content_preview}
 
-文件已成功写入磁盘，可以通过read_file工具验证内容。
+文件已成功写入磁盘。
 """
         return result.strip()
     except json.JSONDecodeError as e:
