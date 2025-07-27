@@ -110,14 +110,20 @@ def _build_directory_tree(
 
 def extract_code_context(
     directory: str,
-    force_read: bool = False
+    force_read: bool = False,
+    specific_files: List[str] = None
 ) -> str:
     """
     提取指定目录下的代码/配置文件上下文（返回结构化JSON）
     
+    两步式安全提取：
+    1. 第一遍运行时（specific_files=None）：仅返回目录结构和文件大小信息
+    2. 第二遍运行时（指定specific_files）：只读取指定的具体文件内容
+    
     Args:
         directory (str): 目标目录路径
         force_read (bool): 是否强制读取所有文件，忽略大小和行数限制
+        specific_files (List[str], optional): 要具体读取的文件路径列表
     
     Returns:
         str: 包含目录结构和文件内容的JSON字符串
@@ -139,78 +145,119 @@ def extract_code_context(
             "message": f"目录 {directory} 中未找到符合类型的代码/配置文件"
         }, ensure_ascii=False)
     
-    # 检查文件限制
-    filtered_files = []
-    files_to_read = []
-    
-    for file_path in target_files:
-        check_result = _check_file_constraints(file_path)
+    # 第一步：如果未指定具体文件，仅返回目录结构和文件信息
+    if specific_files is None:
+        file_info_list = []
+        for file_path in target_files:
+            check_result = _check_file_constraints(file_path)
+            file_info = {
+                "file_path": file_path,
+                "relative_path": os.path.relpath(file_path, directory)
+            }
+            
+            if check_result.get("error"):
+                file_info.update({
+                    "status": "error",
+                    "error": check_result["error"]
+                })
+            else:
+                file_info.update({
+                    "status": "ok",
+                    "line_count": check_result["line_count"],
+                    "file_size_kb": check_result["file_size_kb"],
+                    "exceeds_limits": check_result["exceeds_limits"]
+                })
+            
+            file_info_list.append(file_info)
         
-        if check_result.get("error"):
-            # 读取文件出错，标记为已过滤
-            filtered_files.append({
-                "file_path": file_path,
-                "reason": "read_error",
-                "error": check_result["error"]
-            })
-        elif not force_read and check_result["exceeds_limits"]:
-            # 超过限制且未启用强制读取模式
-            filtered_files.append({
-                "file_path": file_path,
-                "reason": "size_limit",
-                "line_count": check_result["line_count"],
-                "file_size_kb": check_result["file_size_kb"],
-                "limits": {
-                    "max_lines": MAX_LINES,
-                    "max_file_size_kb": MAX_FILE_SIZE_KB
-                }
-            })
-        else:
-            # 可以读取的文件
-            files_to_read.append(file_path)
+        # 构建目录树结构（仅包含文件路径，不包含内容）
+        directory_tree = _build_directory_tree(directory, target_files)
+        
+        result = {
+            "status": "directory_listing",
+            "message": "第一步完成：目录结构和文件信息已列出。如需读取具体文件内容，请指定 specific_files 参数。",
+            "repository_path": os.path.abspath(directory),
+            "directory_tree": directory_tree,
+            "file_info": file_info_list,
+            "summary": {
+                "total_files_found": len(target_files),
+                "mode": "directory_listing"
+            }
+        }
+        
+        return json.dumps(result, ensure_ascii=False, indent=2)
     
-    # 构建目录树结构
-    directory_tree = _build_directory_tree(directory, files_to_read, filtered_files)
+    # 第二步：读取指定的具体文件内容
+    files_to_read = []
+    invalid_files = []
     
-    # 读取所有文件内容（缓存路径→内容映射）
+    # 验证指定的文件是否在目标目录中
+    abs_directory = os.path.abspath(directory)
+    for file_path in specific_files:
+        abs_file_path = os.path.abspath(file_path)
+        
+        # 检查文件是否存在
+        if not os.path.isfile(abs_file_path):
+            invalid_files.append({
+                "file_path": file_path,
+                "error": "文件不存在"
+            })
+            continue
+            
+        # 检查文件是否在目标目录内
+        if not abs_file_path.startswith(abs_directory):
+            invalid_files.append({
+                "file_path": file_path,
+                "error": "文件不在指定目录范围内"
+            })
+            continue
+            
+        # 检查文件类型是否符合要求
+        ext = os.path.splitext(abs_file_path)[1].lower()
+        valid_extensions = [ext for exts in DEFAULT_FILE_TYPES.values() for ext in exts]
+        if ext not in valid_extensions:
+            invalid_files.append({
+                "file_path": file_path,
+                "error": f"文件类型 {ext} 不在支持的类型列表中"
+            })
+            continue
+            
+        files_to_read.append(abs_file_path)
+    
+    # 读取指定文件的内容
     content_map = {}
+    read_errors = []
+    
     for file_path in files_to_read:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 content_map[file_path] = f.read()
         except Exception as e:
             content_map[file_path] = f"[读取失败：{str(e)}]"
+            read_errors.append({
+                "file_path": file_path,
+                "error": str(e)
+            })
     
-    # 生成最终JSON结果
+    # 构建结果
     result = {
-        "status": "success",
-        "repository_path": os.path.abspath(directory),
-        "directory_tree": directory_tree,
+        "status": "content_loaded",
+        "message": "第二步完成：指定文件内容已加载",
+        "repository_path": abs_directory,
         "file_contents": content_map,
         "summary": {
-            "total_files_found": len(target_files),
-            "files_read": len(files_to_read),
-            "files_filtered": len(filtered_files),
-            "force_read_enabled": force_read
+            "requested_files": len(specific_files),
+            "valid_files": len(files_to_read),
+            "invalid_files": len(invalid_files),
+            "read_errors": len(read_errors),
+            "mode": "content_loading"
         }
     }
     
-    # 如果有文件被过滤，添加警报信息
-    if filtered_files and not force_read:
-        alerts = []
-        for filtered in filtered_files:
-            if filtered["reason"] == "size_limit":
-                alerts.append(
-                    f"⚠️ 文件 {os.path.basename(filtered['file_path'])} "
-                    f"({filtered['line_count']}行, {filtered['file_size_kb']}KB) "
-                    f"超过限制 (>{MAX_LINES}行 或 >{MAX_FILE_SIZE_KB}KB)，已跳过。"
-                    f"使用 force_read=True 强制读取。"
-                )
-            elif filtered["reason"] == "read_error":
-                alerts.append(
-                    f"❌ 文件 {os.path.basename(filtered['file_path'])} 读取失败: {filtered['error']}"
-                )
-        result["alerts"] = alerts
+    if invalid_files:
+        result["invalid_files"] = invalid_files
+    if read_errors:
+        result["read_errors"] = read_errors
     
     # 使用json.dumps确保格式正确，处理特殊字符
     return json.dumps(result, ensure_ascii=False, indent=2)
@@ -222,7 +269,7 @@ CODE_CONTEXT_TOOLS = [
         "type": "function",
         "function": {
             "name": "extract_code_context",
-            "description": "提取指定文件夹中的文件，返回带目录结构的JSON（包含文件内容）",
+            "description": "提取指定路径下的代码库：第一步获取目录结构，第二步读取文件内容",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -234,6 +281,14 @@ CODE_CONTEXT_TOOLS = [
                         "type": "boolean",
                         "description": "是否强制读取所有文件，忽略大小和行数限制",
                         "default": False
+                    },
+                    "specific_files": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "要具体读取的文件路径列表（从第一步获取的列表中选择）",
+                        "default": None
                     }
                 },
                 "required": ["directory"],
