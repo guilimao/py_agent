@@ -7,7 +7,10 @@ from config import get_system_prompt
 from frontends import CommandlineFrontend
 
 def load_provider_config():
-    with open("config/provider_config.json", "r", encoding="utf-8") as f:
+    # 获取当前脚本所在目录的绝对路径
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, "config", "provider_config.json")
+    with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 def get_provider_from_model(model_name: str, provider_config: dict) -> str:
@@ -54,8 +57,10 @@ def main():
     # +++ 新增：清理上次对话历史 +++
     try:
         # 安全删除对话记忆文件
-        if os.path.exists("config/conversation_memory.json"):
-            os.remove("config/conversation_memory.json")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        conversation_memory_path = os.path.join(script_dir, "config", "conversation_memory.json")
+        if os.path.exists(conversation_memory_path):
+            os.remove(conversation_memory_path)
             print("已清理上次对话历史记录")
         else:
             print("未找到历史对话记录，无需清理")

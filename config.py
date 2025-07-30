@@ -2,9 +2,11 @@ import json
 import os
 
 def get_system_prompt():
+    # 获取当前脚本所在目录的绝对路径
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     # 优先尝试读取纯文本格式的系统提示
-    txt_path = 'config/system_prompt.txt'
-    json_path = 'config/system_prompt.json'
+    txt_path = os.path.join(script_dir, 'config', 'system_prompt.txt')
+    json_path = os.path.join(script_dir, 'config', 'system_prompt.json')
     
     # 如果文本文件存在，直接读取
     if os.path.exists(txt_path):
@@ -30,7 +32,9 @@ def get_system_prompt():
 def save_provider_config(provider_config):
     """保存提供商配置到文件"""
     try:
-        with open('config/provider_config.json', 'w', encoding='utf-8') as f:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(script_dir, 'config', 'provider_config.json')
+        with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(provider_config, f, ensure_ascii=False, indent=4)
         return True
     except Exception as e:

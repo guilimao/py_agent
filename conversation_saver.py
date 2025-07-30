@@ -1,7 +1,10 @@
 import os
 import json
 
-def save_conversation(messages, file_path="config/conversation_memory.json"):
+def save_conversation(messages, file_path=None):
+    if file_path is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(script_dir, "config", "conversation_memory.json")
     """
     保存对话消息到文件
     :param messages: 消息列表，每个消息是一个字典
