@@ -54,25 +54,8 @@ def main():
         model_name=args.model
     )
     
-    # +++ 新增：清理上次对话历史 +++
-    try:
-        # 安全删除对话记忆文件
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        conversation_memory_path = os.path.join(script_dir, "config", "conversation_memory.json")
-        if os.path.exists(conversation_memory_path):
-            os.remove(conversation_memory_path)
-            print("已清理上次对话历史记录")
-        else:
-            print("未找到历史对话记录，无需清理")
-            
-        # 重置Agent内部状态（确保内存中没有残留）
-        agent.messages = [{"role": "system", "content": get_system_prompt()}]
-        agent.thinking_memory = []
-        agent.tool_call_memory = []
-        agent.last_saved_user_count = 0
-    except Exception as e:
-        print(f"清理历史时发生错误: {e}，将继续运行")
-    # --- 清理结束 ---
+    # 注意：现在使用数据库存储对话历史，不会自动清理
+    # 如果需要清理特定会话的历史，请使用数据库API
     
     agent.run()
 
