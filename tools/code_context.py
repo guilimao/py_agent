@@ -110,7 +110,6 @@ def _build_directory_tree(
 
 def extract_code_context(
     directory: str,
-    force_read: bool = False,
     specific_files: List[str] = None
 ) -> str:
     """
@@ -122,7 +121,6 @@ def extract_code_context(
     
     Args:
         directory (str): 目标目录路径
-        force_read (bool): 是否强制读取所有文件，忽略大小和行数限制
         specific_files (List[str], optional): 要具体读取的文件路径列表
     
     Returns:
@@ -276,11 +274,6 @@ CODE_CONTEXT_TOOLS = [
                     "directory": {
                         "type": "string",
                         "description": "目标目录路径",
-                    },
-                    "force_read": {
-                        "type": "boolean",
-                        "description": "是否强制读取所有文件，忽略大小和行数限制",
-                        "default": False
                     },
                     "specific_files": {
                         "type": "array",
