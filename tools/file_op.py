@@ -251,11 +251,11 @@ FILE_TOOLS = [
                     },
                     "start_line": {
                         "type": "integer",
-                        "description": "开始行号（可选，从1开始，支持负数索引）",
+                        "description": "开始行号（可选，从1开始）",
                     },
                     "end_line": {
                         "type": "integer",
-                        "description": "结束行号（可选，从1开始，支持负数索引）",
+                        "description": "结束行号（可选，从1开始）",
                     },
                 },
                 "required": ["file_name"],
