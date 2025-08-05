@@ -2,6 +2,7 @@ import subprocess
 import threading
 import uuid
 import time
+import re  # 用于文本清理
 from queue import Queue, Empty
 import chardet  # 用于编码检测
 import sys
@@ -65,59 +66,89 @@ class CommandSession:
         self.reader_thread.start()
 
     def _detect_encoding(self):
-        """检测输出编码，优先考虑系统默认编码"""
+        """使用chardet检测输出编码，确保以最有可能的格式解析内容"""
         if self.encoding:  # 如果已经检测到编码，不再重复检测
             return
             
         full_data = b''.join(self.output_buffer)
-        if len(full_data) < 100:  # 数据量太小，可能无法准确检测
-            return
-            
-        # 首先尝试系统默认编码
-        try:
-            full_data.decode(self.system_encoding)
+        if not full_data:  # 没有数据
             self.encoding = self.system_encoding
             return
-        except UnicodeDecodeError:
-            pass  # 继续尝试其他编码
             
-        # 使用chardet检测
-        result = chardet.detect(full_data)
-        confidence = result['confidence']
-        encoding = result['encoding'] or 'utf-8'
-        
-        # 降低置信度要求，增加常见中文编码的优先级
-        if confidence > 0.4:
-            # 对常见中文编码给予更高优先级
-            if encoding.lower() in ['gb2312', 'gbk', 'gb18030']:
-                self.encoding = encoding
-            else:
-                # 对UTF-8要求更高的置信度
-                if encoding.lower() == 'utf-8' and confidence > 0.6:
-                    self.encoding = encoding
+        # 使用chardet进行编码检测
+        try:
+            result = chardet.detect(full_data)
+            
+            if result and result['encoding']:
+                detected_encoding = result['encoding'].lower()
+                confidence = result['confidence']
+                
+                # 根据置信度和编码类型决定最终编码
+                if confidence >= 0.7:
+                    # 高置信度，直接使用检测到的编码
+                    self.encoding = detected_encoding
+                elif confidence >= 0.4:
+                    # 中等置信度，检查是否为常见中文编码
+                    if detected_encoding in ['gb2312', 'gbk', 'gb18030', 'big5']:
+                        self.encoding = detected_encoding
+                    elif detected_encoding == 'utf-8':
+                        self.encoding = 'utf-8'
+                    else:
+                        # 其他编码，优先考虑系统编码
+                        self.encoding = self.system_encoding
                 else:
-                    # 对其他编码使用系统默认编码
-                    self.encoding = self.system_encoding
-        else:
-            # 尝试几种常见编码，按优先级排序
-            priority_encodings = [
-                self.system_encoding,  # 系统默认编码优先
-                'utf-8',
-                'gbk',
-                'gb2312',
-                'gb18030',
-                'cp936'
-            ]
-            
-            for enc in priority_encodings:
-                try:
-                    full_data.decode(enc)
-                    self.encoding = enc
-                    break
-                except UnicodeDecodeError:
-                    continue
+                    # 低置信度，尝试多种编码
+                    self._try_multiple_encodings(full_data)
             else:
-                self.encoding = 'utf-8'  # 所有尝试都失败，默认使用UTF-8
+                # chardet未能检测到编码，尝试多种编码
+                self._try_multiple_encodings(full_data)
+                
+        except Exception:
+            # chardet检测失败，尝试多种编码
+            self._try_multiple_encodings(full_data)
+
+    def _try_multiple_encodings(self, data: bytes):
+        """尝试多种可能的编码格式"""
+        # 按优先级排序的编码列表
+        test_encodings = [
+            self.system_encoding,  # 系统默认编码优先
+            'utf-8',
+            'gbk',
+            'gb2312', 
+            'gb18030',
+            'cp936',
+            'big5',
+            'ascii'
+        ]
+        
+        for encoding in test_encodings:
+            try:
+                data.decode(encoding)
+                self.encoding = encoding
+                return
+            except (UnicodeDecodeError, LookupError):
+                continue
+        
+        # 如果所有尝试都失败，使用utf-8并替换错误字符
+        self.encoding = 'utf-8'
+
+    def _clean_text_content(self, text: str) -> str:
+        """清理文本内容，移除控制字符和ANSI转义序列，返回纯文本"""
+        import re
+        
+        # 移除ANSI转义序列（颜色代码等）
+        text = re.sub(r'\x1b\[[0-9;]*m', '', text)
+        
+        # 移除其他控制字符，但保留有用的空白字符
+        text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
+        
+        # 标准化换行符
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
+        
+        # 移除多余的空行，但保留单个空行
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        
+        return text.strip()
 
     def _start_monitor(self):
         """监控进程状态和超时"""
@@ -165,17 +196,29 @@ class CommandSession:
         # 更新读取位置
         self.last_output_position = len(self.output_buffer)
         
-        # 如果尚未检测到编码，使用系统默认编码
+        # 如果尚未检测到编码，先进行检测
+        if not self.encoding and new_bytes:
+            self._detect_encoding()
+        
+        # 使用检测到的编码或系统默认编码
         encoding = self.encoding if self.encoding else self.system_encoding
         
         try:
-            return new_bytes.decode(encoding, errors='replace')
-        except UnicodeDecodeError:
-            # 如果解码失败，尝试使用系统默认编码
-            return new_bytes.decode(self.system_encoding, errors='replace')
+            # 使用检测到的编码解码，替换无法解码的字符
+            decoded_content = new_bytes.decode(encoding, errors='replace')
+            
+            # 清理文本内容，返回纯文本
+            return self._clean_text_content(decoded_content)
+            
+        except (UnicodeDecodeError, LookupError):
+            # 如果解码失败，使用系统默认编码
+            decoded_content = new_bytes.decode(self.system_encoding, errors='replace')
+            
+            # 清理文本内容，返回纯文本
+            return self._clean_text_content(decoded_content)
 
     def get_full_output(self) -> str:
-        """获取完整的解码输出"""
+        """获取完整的解码输出，使用chardet检测的最有可能的编码格式"""
         # 在输出最终结果前进行编码检测
         self._detect_encoding()
 
@@ -184,10 +227,20 @@ class CommandSession:
             self.encoding = self.system_encoding
 
         full_data = b''.join(self.output_buffer)
+        
         try:
-            return full_data.decode(self.encoding, errors='replace')
+            # 使用检测到的编码解码，确保返回纯文本信息
+            decoded_content = full_data.decode(self.encoding, errors='replace')
+            
+            # 清理文本内容，返回纯文本
+            return self._clean_text_content(decoded_content)
+            
         except (UnicodeDecodeError, LookupError):
-            return full_data.decode(self.system_encoding, errors='replace')
+            # 如果检测到的编码失败，使用系统默认编码
+            decoded_content = full_data.decode(self.system_encoding, errors='replace')
+            
+            # 清理文本内容，返回纯文本
+            return self._clean_text_content(decoded_content)
 
     def is_finished(self) -> bool:
         """检查会话是否真正结束（进程退出）"""
