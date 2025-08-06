@@ -64,7 +64,12 @@ class Agent:
                         extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
                     )
 
+                    finish_reason = None
                     for chunk in stream:
+                        # 获取finish_reason
+                        if hasattr(chunk.choices[0], 'finish_reason') and chunk.choices[0].finish_reason:
+                            finish_reason = chunk.choices[0].finish_reason
+
                         # 处理思考过程（思维链）
                         if hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
                             if not has_received_reasoning:
@@ -102,6 +107,10 @@ class Agent:
                                     # 显示参数接收进度（每50字符一个点）
                                     if len(tool_calls_cache[tool_chunk.index]['function']['arguments']) % 50 == 0:
                                         self.frontend.output('tool_progress', ".")
+
+                    # 输出结束信息
+                    if finish_reason:
+                        self.frontend.output('end', f"\n[Stream结束] 完成原因: {finish_reason}")
 
                     # 处理自然语言输出（若有）
                     if full_response:

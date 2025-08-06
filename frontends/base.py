@@ -21,7 +21,7 @@ class FrontendInterface:
         输出内容到前端
         
         Args:
-            message_type: 消息类型（如 'thinking', 'content', 'tool_call'）
+            message_type: 消息类型（如 'thinking', 'content', 'tool_call', 'end'）
             content: 要输出的内容
             kwargs: 其他类型相关参数
         """

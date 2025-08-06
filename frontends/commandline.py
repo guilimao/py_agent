@@ -92,6 +92,13 @@ class CommandlineFrontend(FrontendInterface):
                 self.thinking_mode = False
             print(f"\033[95m{content}\033[0m")
         
+        # 结束信息 - 品红色
+        elif message_type == "end":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
+            print(f"\n\033[95m{content}\033[0m")
+        
         # 常规信息
         elif message_type == "info":
             if self.thinking_mode:
