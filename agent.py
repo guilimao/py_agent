@@ -1,8 +1,10 @@
 from openai import OpenAI
 from frontends import FrontendInterface
 from tools import TOOL_FUNCTIONS, TOOLS
+from token_counter import TokenCounter
 import conversation_saver
 import json_repair
+
 
 class Agent:
     def __init__(
@@ -15,7 +17,8 @@ class Agent:
         self.client = client
         self.frontend = frontend
         self.messages = [{"role": "system", "content": system_prompt}]
-        self.model_name = model_name  
+        self.model_name = model_name
+        self.token_counter = TokenCounter(model_name)  
 
 
     def filter_thinking_field(self, messages):
@@ -36,6 +39,11 @@ class Agent:
                 user_input, has_input = self.frontend.get_input()
                 if not has_input or user_input.lower() == '退出':
                     break
+                
+                # 开始新一轮token统计
+                self.token_counter.start_new_round()
+                self.token_counter.add_user_input(user_input)
+                
                 # 添加用户输入到对话上下文
                 self.messages.append({"role": "user", "content": user_input})
                 conversation_saver.save_conversation(self.messages)
@@ -120,24 +128,45 @@ class Agent:
                             "thinking": reasoning_content  # 保存思考过程
                         })
                         conversation_saver.save_conversation(self.messages)
+                        
+                        # 统计LLM输出token（思维链+自然语言）
+                        self.token_counter.add_llm_output(
+                            thinking=reasoning_content,
+                            content=full_response
+                        )
 
                     # 处理工具调用（若有）
                     if tool_calls_cache:
                         self.frontend.output('info', "\n工具参数接收完成，开始执行...")
+                        
+                        # 统计工具调用token
+                        tool_calls_list = [
+                            {
+                                'id': tool_call['id'],
+                                'type': 'function',
+                                'function': {
+                                    'name': tool_call['function']['name'],
+                                    'arguments': tool_call['function']['arguments']
+                                }
+                            } for tool_call in tool_calls_cache.values()
+                        ]
+                        
+                        # 添加工具调用token统计（如果还没有统计过思维链）
+                        if not full_response:  # 只有工具调用，没有自然语言输出
+                            self.token_counter.add_llm_output(
+                                thinking=reasoning_content,
+                                tool_calls=tool_calls_list
+                            )
+                        else:  # 已经有自然语言输出，只统计工具调用
+                            self.token_counter.add_llm_output(
+                                tool_calls=tool_calls_list
+                            )
+                        
                         # 添加工具调用指令到对话上下文
                         self.messages.append({
                             "role": "assistant",
                             "content": None,
-                            "tool_calls": [
-                                {
-                                    'id': tool_call['id'],
-                                    'type': 'function',
-                                    'function': {
-                                        'name': tool_call['function']['name'],
-                                        'arguments': tool_call['function']['arguments']
-                                    }
-                                } for tool_call in tool_calls_cache.values()
-                            ],
+                            "tool_calls": tool_calls_list,
                             "thinking": reasoning_content  # 保存思考过程
                         })
                         conversation_saver.save_conversation(self.messages)
@@ -162,6 +191,9 @@ class Agent:
                                     })
                                     conversation_saver.save_conversation(self.messages)
                                     
+                                    # 统计工具返回结果的token
+                                    self.token_counter.add_tool_result(str(function_response))
+                                    
                                     # 增强工具结果展示，包含明确的操作确认
                                     if function_name == "create_file":
                                         self.frontend.output('tool_result', f"✅ 文件操作完成：{function_name}", result=function_response)
@@ -182,6 +214,10 @@ class Agent:
 
                     self.frontend.output('info', "\n")
 
+                # 完成当前轮次token统计并显示
+                self.token_counter.finish_round()
+                self.frontend.output('round_tokens', self.token_counter.get_round_summary())
+                
                 self.frontend.output('info', "\n")
 
         except Exception as e:
