@@ -69,7 +69,7 @@ class Agent:
                         tools=TOOLS,
                         tool_choice="auto",
                         max_tokens=16384,
-                        extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
+                    #    extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
                     )
 
                     finish_reason = None
