@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="kimi-k2-0711-preview",
+        default="doubao-seed-1-6-250615",
         help="指定使用的LLM模型名称"
     )
     args = parser.parse_args()

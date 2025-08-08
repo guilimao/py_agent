@@ -36,9 +36,36 @@ class TokenCounter:
         """计算消息对象的token数量"""
         total_tokens = 0
         
-        # 计算content的token
-        if message.get("content"):
-            total_tokens += self.count_tokens(str(message["content"]))
+        # 处理content字段（支持字符串和列表格式）
+        content = message.get("content")
+        if content:
+            if isinstance(content, str):
+                total_tokens += self.count_tokens(content)
+            elif isinstance(content, list):
+                # 处理content列表（包含文本和图像）
+                for item in content:
+                    if isinstance(item, dict):
+                        if item.get("type") == "text" and item.get("text"):
+                            total_tokens += self.count_tokens(item["text"])
+                        elif item.get("type") == "image_url" and item.get("image_url", {}).get("url"):
+                            # 图像URL的token估算（OpenAI的估算方式）
+                            # 基础token + 图像大小估算
+                            total_tokens += 85  # 基础图像token
+                            
+                            # 尝试从base64估算图像大小
+                            url = item["image_url"]["url"]
+                            if url.startswith("data:image"):
+                                try:
+                                    # 提取base64部分
+                                    base64_part = url.split(",")[1]
+                                    # 估算token（每像素约0.002 tokens，但这里简化处理）
+                                    image_size = len(base64_part) * 0.75  # base64解码后的大小
+                                    if image_size > 100000:  # 大于100KB
+                                        total_tokens += 170  # 高分辨率图像
+                                    elif image_size > 50000:  # 大于50KB
+                                        total_tokens += 85   # 中等分辨率图像
+                                except:
+                                    total_tokens += 85  # 默认估算
         
         # 计算thinking的token
         if message.get("thinking"):

@@ -2,6 +2,7 @@ from openai import OpenAI
 from frontends import FrontendInterface
 from tools import TOOL_FUNCTIONS, TOOLS
 from token_counter import TokenCounter
+from frontends.image_handler import ImageHandler
 import conversation_saver
 import json_repair
 
@@ -27,6 +28,15 @@ class Agent:
         for message in messages:
             new_message = message.copy()
             new_message.pop("thinking", None)
+            
+            # 处理content为列表的情况
+            if isinstance(new_message.get("content"), list):
+                # 保留content列表，但确保没有thinking字段
+                pass
+            elif isinstance(new_message.get("content"), str):
+                # 字符串内容保持不变
+                pass
+            
             filtered_messages.append(new_message)
         return filtered_messages
 
@@ -40,12 +50,27 @@ class Agent:
                 if not has_input or user_input.lower() == '退出':
                     break
                 
+                # 处理用户输入，提取图像
+                clean_text, content_parts = ImageHandler.process_user_input(user_input)
+                
                 # 开始新一轮token统计
                 self.token_counter.start_new_round()
-                self.token_counter.add_user_input(user_input)
+                
+                # 计算文本内容的token（如果有）
+                if clean_text:
+                    self.token_counter.add_user_input(clean_text)
+                else:
+                    # 只有图像的情况，计算一个基础token数
+                    self.token_counter.add_user_input("[图像输入]")
                 
                 # 添加用户输入到对话上下文
-                self.messages.append({"role": "user", "content": user_input})
+                if content_parts:
+                    # 使用content列表格式（包含文本和图像）
+                    self.messages.append({"role": "user", "content": content_parts})
+                else:
+                    # 回退到纯文本格式
+                    self.messages.append({"role": "user", "content": clean_text or "请分析上传的图像"})
+                
                 conversation_saver.save_conversation(self.messages)
 
                 self.frontend.output('info', "")

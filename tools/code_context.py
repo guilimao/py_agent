@@ -106,7 +106,7 @@ CODE_CONTEXT_TOOLS = [
         "type": "function",
         "function": {
             "name": "extract_code_context",
-            "description": "提取指定路径下的所有文件内容",
+            "description": "提取指定路径下的所有代码文件内容",
             "parameters": {
                 "type": "object",
                 "properties": {

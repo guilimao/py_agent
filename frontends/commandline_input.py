@@ -2,8 +2,9 @@ from typing import Tuple
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
-from prompt_toolkit import PromptSession
-from prompt_toolkit.key_binding import KeyBindings
+import os
+import sys
+from .image_handler import ImageHandler
 
 def get_multiline_input() -> Tuple[str, bool]:
     """获取多行用户输入（使用Ctrl+Enter提交）"""
@@ -33,6 +34,7 @@ def get_multiline_input() -> Tuple[str, bool]:
         )
 
         print("\n\033[36m输入内容 (Ctrl+\\ 发送，ENTER换行):\033[0m")
+        print("\033[33m提示：可以直接拖拽图像文件到命令行，或输入图像文件路径\033[0m")
         text = session.prompt('> ')
 
         return text, True

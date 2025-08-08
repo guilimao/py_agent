@@ -49,10 +49,18 @@ class ConversationDatabase:
         cursor = conn.cursor()
         
         for msg in messages:
+            # 处理content字段（支持字符串和列表格式）
+            content = msg.get("content")
+            if isinstance(content, list):
+                # 将content列表序列化为JSON字符串存储
+                content_str = json.dumps(content, ensure_ascii=False)
+            else:
+                content_str = content
+            
             conv = {
                 "role": msg["role"],
                 "thinking": msg.get("thinking"),
-                "content": msg.get("content"),
+                "content": content_str,
                 "tool_calls": json.dumps(msg.get("tool_calls")) if msg.get("tool_calls") else None,
                 "tool_call_id": msg.get("tool_call_id"),
                 "session_id": session_id
@@ -99,10 +107,22 @@ class ConversationDatabase:
         
         conversations = []
         for row in rows:
+            content = row[2]
+            
+            # 尝试解析content为JSON（处理content列表格式）
+            try:
+                if content and content.startswith('[') and content.endswith(']'):
+                    parsed_content = json.loads(content)
+                    if isinstance(parsed_content, list):
+                        content = parsed_content
+            except (json.JSONDecodeError, ValueError):
+                # 如果解析失败，保持原样
+                pass
+            
             conv = {
                 "role": row[0],
                 "thinking": row[1],
-                "content": row[2],
+                "content": content,
                 "timestamp": row[5]
             }
             
