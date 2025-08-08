@@ -33,8 +33,7 @@ def get_multiline_input() -> Tuple[str, bool]:
             key_bindings=bindings
         )
 
-        print("\n\033[36m输入内容 (Ctrl+\\ 发送，ENTER换行):\033[0m")
-        print("\033[33m提示：可以直接拖拽图像文件到命令行，或输入图像文件路径\033[0m")
+        print("\n\033[36m输入内容 (Ctrl+\\ 发送，ENTER换行，拖曳添加图像):\033[0m")
         text = session.prompt('> ')
 
         return text, True
