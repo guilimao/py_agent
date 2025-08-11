@@ -1,7 +1,6 @@
 __pycache__/
 conversation_memory.json
 *.pyc  
-work/
-word_count.json
 conversations.db
 *.db
+build/
