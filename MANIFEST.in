@@ -1,0 +1,4 @@
+include README.md
+include README_EN.md
+include requirements.txt
+recursive-include pyagent/config *.json *.txt

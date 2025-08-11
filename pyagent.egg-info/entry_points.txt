@@ -1,0 +1,2 @@
+[console_scripts]
+pyagent = pyagent.main:main

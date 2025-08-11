@@ -1,9 +1,9 @@
 from openai import OpenAI
-from frontends import FrontendInterface
-from tools import TOOL_FUNCTIONS, TOOLS
-from token_counter import TokenCounter
-from frontends.image_handler import ImageHandler
-import conversation_saver
+from .frontends import FrontendInterface
+from .tools import TOOL_FUNCTIONS, TOOLS
+from .token_counter import TokenCounter
+from .frontends.image_handler import ImageHandler
+from . import conversation_saver
 import json_repair
 
 
