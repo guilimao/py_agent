@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyagent"
+version = "1.0.0"
+description = "一个使用Python构建的命令行LLM代理示例"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Guilimao", email = "guilimao@foxmail.com"},
+]
+keywords = ["llm", "agent", "cli", "ai", "chatbot"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "chardet>=5.2.0",
+    "json_repair>=0.47.6",
+    "openai>=1.93.0",
+    "prompt_toolkit>=3.0.51",
+    "pillow>=10.0.0",
+    "tiktoken>=0.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/guilimao/py_agent"
+"Bug Reports" = "https://github.com/guilimao/py_agent/issues"
+"Source" = "https://github.com/guilimao/py_agent"
+
+[project.scripts]
+pyagent = "pyagent.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyagent*"]
+
+[tool.setuptools.package-data]
+pyagent = ["config/*.json", "config/*.txt"]

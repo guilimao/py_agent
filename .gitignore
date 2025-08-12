@@ -4,3 +4,4 @@ conversation_memory.json
 conversations.db
 *.db
 build/
+*.egg-info/

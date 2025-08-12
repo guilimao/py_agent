@@ -1,6 +1,7 @@
-chardet==5.2.0
-json_repair==0.47.6
-openai==1.93.0
-prompt_toolkit==3.0.51
+chardet>=5.2.0
+json_repair>=0.47.6
+openai>=1.93.0
+prompt_toolkit>=3.0.51
 pillow>=10.0.0
+tiktoken>=0.5.0
 

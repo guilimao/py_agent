@@ -2,9 +2,9 @@ import os
 import argparse
 import json
 from openai import OpenAI
-from .agent import Agent
-from .config import get_system_prompt
-from .frontends import CommandlineFrontend
+from pyagent.agent import Agent
+from pyagent.config import get_system_prompt
+from pyagent.frontends import CommandlineFrontend
 
 def load_provider_config():
     # 获取当前脚本所在目录的绝对路径
@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-5-2025-08-07",
+        default="kimi-k2-0711-preview",
         help="指定使用的LLM模型名称"
     )
     args = parser.parse_args()

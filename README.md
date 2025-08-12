@@ -14,20 +14,29 @@ PyAgent 是一个基于 Python 实现的命令行 LLM（大型语言模型）代
 - 可扩展架构，支持添加新功能
 - 灵活的模型指定：通过命令行参数选择不同LLM模型（支持火山引擎、深度求索等多提供商）
 
+## 安装
+
+### 通过 pip 安装（推荐）
+```bash
+pip install .
+```
+
+### 开发模式安装
+```bash
+pip install -e .
+```
+
 ## 使用方法
 
 ### 环境准备
-1. 安装依赖库（首次运行前执行）：
-```bash
-pip install -r requirements.txt
-```
+1. 安装项目（如上所述）
 
 2. 配置API Key：
    - 不同模型需要在环境变量中配置对应提供商的API Key（参照`config/provider_config.json`中的命名格式）
 
 ### 启动代理
 ```bash
-python main.py [--model 模型名称]
+pyagent [--model 模型名称]
 ```
 
 参数说明：
@@ -38,13 +47,13 @@ python main.py [--model 模型名称]
 示例：
 ```bash
 # 使用默认模型（火山引擎doubao-1-5-thinking-pro-250415）
-python main.py
+pyagent
 
 # 指定使用火山引擎的deepseek-r1-250120模型
-python main.py --model deepseek-r1-250120
+pyagent --model deepseek-r1-250120
 
 # 指定使用深度求索的deepseek-chat模型
-python main.py --model deepseek-chat
+pyagent --model deepseek-chat
 ```
 
 ## 路线图
