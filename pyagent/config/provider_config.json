@@ -29,5 +29,10 @@
         "api_key_env": "OLLAMA_KEY",
         "base_url": "http://localhost:11434/v1/",
         "models": ["deepseek-r1:1.5b","qwen3:4b"]
+    },
+    "openai": {
+        "api_key_env": "OPENAI_API_KEY",
+        "base_url": "https://api.openai.com/v1",
+        "models": ["gpt-5-2025-08-07"]
     }
 }

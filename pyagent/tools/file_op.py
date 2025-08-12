@@ -275,7 +275,7 @@ FILE_TOOLS = [
                         "description": "目标文件路径",
                     },
                     "file_content": {
-                        "type": ["string", "object", "array"],
+                        "type": ["string", "object"],
                         "description": "文件内容",
                     },
                 },
