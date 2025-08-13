@@ -1,5 +1,4 @@
 import os
-import argparse
 import json
 from openai import OpenAI
 from pyagent.agent import Agent
@@ -19,43 +18,128 @@ def get_provider_from_model(model_name: str, provider_config: dict) -> str:
             return provider
     raise ValueError(f"未找到支持模型 {model_name} 的提供商，请检查 config/provider_config.json 配置")
 
+def load_all_models(provider_config: dict) -> list:
+    """从配置中加载所有可用模型并返回带序号的列表"""
+    models = []
+    for provider, config in provider_config.items():
+        for model in config.get("models", []):
+            models.append({
+                "name": model,
+                "provider": provider,
+                "api_key_env": config["api_key_env"],
+                "base_url": config["base_url"]
+            })
+    return models
+
+def select_model_interactive(models: list) -> dict:
+    """交互式选择模型"""
+    print("\n" + "="*60)
+    print("请选择要使用的模型：")
+    print("="*60)
+    
+    for idx, model_info in enumerate(models, 1):
+        print(f"{idx}. {model_info['name']} ({model_info['provider']})")
+    
+    print("="*60)
+    
+    while True:
+        try:
+            choice = input("请输入模型序号 (1-{}): ".format(len(models))).strip()
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(models):
+                selected = models[choice_num - 1]
+                print(f"\n已选择模型: {selected['name']} ({selected['provider']})")
+                return selected
+            else:
+                print(f"请输入 1-{len(models)} 之间的数字")
+        except ValueError:
+            print("请输入有效的数字")
+        except KeyboardInterrupt:
+            print("\n\n用户取消选择，程序退出")
+            exit(0)
+
+def handle_missing_api_key(model_info: dict) -> bool:
+    """处理缺失的API KEY，返回是否成功处理"""
+    env_var = model_info["api_key_env"]
+    provider = model_info["provider"]
+    model_name = model_info["name"]
+    
+    print(f"\n⚠️  未找到环境变量 {env_var}")
+    print(f"需要设置此变量才能使用 {provider} 提供商的 {model_name} 模型")
+    
+    while True:
+        try:
+            choice = input("\n是否需要添加API KEY? (y/n): ").strip().lower()
+            
+            if choice == 'y':
+                # 让用户输入API KEY
+                api_key = input(f"请输入 {provider} 的API KEY: ").strip()
+                if api_key:
+                    # 设置环境变量
+                    os.environ[env_var] = api_key
+                    print(f"✅ API KEY 已设置到环境变量 {env_var}")
+                    return True
+                else:
+                    print("❌ API KEY 不能为空")
+                    
+            elif choice == 'n':
+                print("重新加载模型列表...")
+                return False
+                
+            else:
+                print("请输入 'y' (添加) 或 'n' (重新加载模型)")
+                
+        except KeyboardInterrupt:
+            print("\n\n用户取消操作，程序退出")
+            exit(0)
+
 
 def main():
-    parser = argparse.ArgumentParser(description="配置Agent运行参数")
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="kimi-k2-0711-preview",
-        help="指定使用的LLM模型名称"
-    )
-    args = parser.parse_args()
-
     provider_config = load_provider_config()
-    provider = get_provider_from_model(args.model, provider_config)
-
-    config = provider_config.get(provider)
-    if not config:
-        raise ValueError(f"提供商 {provider} 未在 config/provider_config.json 中配置")
-
-    if args.model not in config["models"]:
-        raise ValueError(f"模型 {args.model} 未在提供商 {provider} 的支持模型列表中，可用模型：{config['models']}")
     
+    while True:
+        # 加载所有可用模型
+        all_models = load_all_models(provider_config)
+        
+        if not all_models:
+            raise ValueError("未找到任何可用模型，请检查 config/provider_config.json 配置")
+        
+        # 交互式选择模型
+        selected_model = select_model_interactive(all_models)
+        
+        # 验证API密钥是否存在
+        api_key = os.getenv(selected_model["api_key_env"])
+        
+        if api_key:
+            # API KEY已存在，直接创建客户端并运行
+            break
+        else:
+            # API KEY缺失，处理缺失情况
+            if handle_missing_api_key(selected_model):
+                # 用户成功添加了API KEY，继续执行
+                api_key = os.getenv(selected_model["api_key_env"])
+                if api_key:
+                    break
+            else:
+                # 用户选择返回或重新加载，继续循环
+                continue
+    
+    # 创建OpenAI客户端
     client = OpenAI(
-        api_key=os.getenv(config["api_key_env"]),
-        base_url=config["base_url"]
+        api_key=api_key,
+        base_url=selected_model["base_url"]
     )
+    
     # 创建命令行前端实例
     frontend = CommandlineFrontend()
     
+    # 创建并运行Agent
     agent = Agent(
         client=client,
         frontend=frontend,
         system_prompt=get_system_prompt(),
-        model_name=args.model
+        model_name=selected_model["name"]
     )
-    
-    # 注意：现在使用数据库存储对话历史，不会自动清理
-    # 如果需要清理特定会话的历史，请使用数据库API
     
     agent.run()
 

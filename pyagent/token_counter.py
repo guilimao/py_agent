@@ -1,4 +1,5 @@
 import tiktoken
+import json
 
 class TokenCounter:
     """Token统计器，用于统计对话中的token使用量"""
@@ -20,10 +21,16 @@ class TokenCounter:
         
         # 总token统计
         self.total_stats = {
-            "total_user_input_tokens": 0,
-            "total_llm_output_tokens": 0,
-            "total_tool_result_tokens": 0,
-            "total_tokens": 0
+            "total_input_tokens": 0,      # 总输入token（包括系统提示、工具定义、用户输入、工具返回）
+            "total_output_tokens": 0,     # 总输出token（LLM输出：思考+自然语言+工具调用）
+            "total_tokens": 0             # 总token = 总输入 + 总输出
+        }
+        
+        # 系统初始token统计
+        self.initial_tokens = {
+            "system_prompt_tokens": 0,
+            "tools_definition_tokens": 0,
+            "total_initial_tokens": 0
         }
     
     def count_tokens(self, text: str) -> int:
@@ -80,6 +87,28 @@ class TokenCounter:
                     total_tokens += self.count_tokens(func_name) + self.count_tokens(func_args)
         
         return total_tokens
+
+    def count_tools_tokens(self, tools: list) -> int:
+        """计算工具定义的token数量"""
+        if not tools:
+            return 0
+        
+        # 将工具定义转换为JSON字符串进行token计算
+        tools_json = json.dumps(tools, ensure_ascii=False, separators=(',', ':'))
+        return self.count_tokens(tools_json)
+
+    def set_initial_tokens(self, system_prompt: str, tools: list):
+        """设置系统初始token（系统提示+工具定义）"""
+        system_tokens = self.count_tokens(system_prompt)
+        tools_tokens = self.count_tools_tokens(tools)
+        
+        self.initial_tokens["system_prompt_tokens"] = system_tokens
+        self.initial_tokens["tools_definition_tokens"] = tools_tokens
+        self.initial_tokens["total_initial_tokens"] = system_tokens + tools_tokens
+        
+        # 将初始token计入总输入token
+        self.total_stats["total_input_tokens"] = system_tokens + tools_tokens
+        self.total_stats["total_tokens"] = system_tokens + tools_tokens
     
     def start_new_round(self):
         """开始新一轮对话，重置当前轮次统计"""
@@ -90,12 +119,34 @@ class TokenCounter:
             "total_round_tokens": 0
         }
     
+    def calculate_conversation_tokens(self, messages: list) -> int:
+        """计算整个对话历史的token总数（用于API调用前的输入token计算）"""
+        total_tokens = 0
+        
+        # 包括系统提示和工具定义的初始token
+        total_tokens += self.initial_tokens["total_initial_tokens"]
+        
+        # 计算所有历史消息的token
+        for message in messages:
+            total_tokens += self.count_message_tokens(message)
+            
+        return total_tokens
+
+    def update_total_stats(self, messages: list):
+        """根据当前对话历史更新总token统计"""
+        # 计算真实的总输入token（包括历史对话）
+        actual_input_tokens = self.calculate_conversation_tokens(messages)
+        
+        # 更新总统计
+        self.total_stats["total_input_tokens"] = actual_input_tokens
+        self.total_stats["total_tokens"] = actual_input_tokens + self.total_stats["total_output_tokens"]
+
     def add_user_input(self, text: str):
-        """添加用户输入的token统计"""
+        """添加用户输入的token统计（仅当前轮次）"""
         tokens = self.count_tokens(text)
         self.current_round_stats["user_input_tokens"] = tokens
-        self.total_stats["total_user_input_tokens"] += tokens
-    
+        # 注意：总输入token由外部calculate_conversation_tokens方法统一计算
+
     def add_llm_output(self, thinking: str = "", content: str = "", tool_calls: list = None):
         """添加LLM输出的token统计"""
         tokens = 0
@@ -117,14 +168,14 @@ class TokenCounter:
                     tokens += self.count_tokens(func_name) + self.count_tokens(func_args)
         
         self.current_round_stats["llm_output_tokens"] += tokens
-        self.total_stats["total_llm_output_tokens"] += tokens
-    
+        self.total_stats["total_output_tokens"] += tokens
+
     def add_tool_result(self, result: str):
-        """添加工具返回结果的token统计"""
+        """添加工具返回结果的token统计（仅当前轮次）"""
         tokens = self.count_tokens(str(result))
         self.current_round_stats["tool_result_tokens"] += tokens
-        self.total_stats["total_tool_result_tokens"] += tokens
-    
+        # 注意：总输入token由外部calculate_conversation_tokens方法统一计算
+
     def finish_round(self):
         """完成当前轮次，计算总token数"""
         self.current_round_stats["total_round_tokens"] = (
@@ -132,8 +183,7 @@ class TokenCounter:
             self.current_round_stats["llm_output_tokens"] +
             self.current_round_stats["tool_result_tokens"]
         )
-        self.total_stats["total_tokens"] += self.current_round_stats["total_round_tokens"]
-    
+
     def get_round_summary(self) -> str:
         """获取当前轮次的token统计摘要"""
         return f"""
@@ -144,8 +194,26 @@ class TokenCounter:
    📈 本轮总计: {self.current_round_stats['total_round_tokens']} tokens
 
 📊 累计Token统计:
-   👤 用户输入总计: {self.total_stats['total_user_input_tokens']} tokens
-   🤖 LLM输出总计: {self.total_stats['total_llm_output_tokens']} tokens
-   🔧 工具结果总计: {self.total_stats['total_tool_result_tokens']} tokens
+   📝 系统初始: {self.initial_tokens['total_initial_tokens']} tokens
+   👤 用户输入: {self.current_round_stats['user_input_tokens']} tokens (本轮)
+   🤖 LLM输出: {self.current_round_stats['llm_output_tokens']} tokens (本轮)
+   🔧 工具结果: {self.current_round_stats['tool_result_tokens']} tokens (本轮)
+   📥 总输入: {self.total_stats['total_input_tokens']} tokens
+   📤 总输出: {self.total_stats['total_output_tokens']} tokens
    📊 总计: {self.total_stats['total_tokens']} tokens
 """
+
+    def get_current_operation_summary(self, operation_type: str) -> str:
+        """获取当前操作的token统计"""
+        if operation_type == "user_input":
+            return f"📥 用户输入: {self.current_round_stats['user_input_tokens']} tokens"
+        elif operation_type == "llm_output":
+            return f"📤 LLM输出: {self.current_round_stats['llm_output_tokens']} tokens"
+        elif operation_type == "tool_result":
+            return f"📥 工具返回: {self.current_round_stats['tool_result_tokens']} tokens"
+        else:
+            return ""
+
+    def get_total_summary(self) -> str:
+        """获取总token统计"""
+        return f"📊 总输入: {self.total_stats['total_input_tokens']} tokens, 总输出: {self.total_stats['total_output_tokens']} tokens, 总计: {self.total_stats['total_tokens']} tokens"

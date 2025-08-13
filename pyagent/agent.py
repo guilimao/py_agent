@@ -13,13 +13,17 @@ class Agent:
         client: OpenAI, 
         frontend: FrontendInterface, 
         system_prompt: str, 
-        model_name: str = "qwen3-235b-a22b"
+        model_name: str
     ):
         self.client = client
         self.frontend = frontend
         self.messages = [{"role": "system", "content": system_prompt}]
         self.model_name = model_name
-        self.token_counter = TokenCounter(model_name)  
+        self.token_counter = TokenCounter(model_name)
+        
+        # 设置系统初始token（系统提示+工具定义）
+        from .tools import TOOLS
+        self.token_counter.set_initial_tokens(system_prompt, TOOLS)  
 
 
     def filter_thinking_field(self, messages):
@@ -43,7 +47,6 @@ class Agent:
     def run(self):
         try:
             self.frontend.start_session()
-            self.frontend.output('info', "\n对话开始，输入‘退出’结束对话")
             while True:
                 # 获取用户输入
                 user_input, has_input = self.frontend.get_input()
@@ -73,7 +76,11 @@ class Agent:
                 
                 conversation_saver.save_conversation(self.messages)
 
-                self.frontend.output('info', "")
+                # 更新总token统计（使用全量计算）
+                self.token_counter.update_total_stats(self.messages)
+                
+                # 显示用户输入后的token统计
+                self.frontend.output('info', f"{self.token_counter.get_total_summary()}")
 
                 while True:
                     full_response = ""  # LLM自然语言输出
@@ -93,7 +100,7 @@ class Agent:
                         stream=True,
                         tools=TOOLS,
                         tool_choice="auto",
-                    #    max_tokens=16384,
+                        max_tokens=16384,
                     #    extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
                     )
 
@@ -159,6 +166,12 @@ class Agent:
                             thinking=reasoning_content,
                             content=full_response
                         )
+                        
+                        # 更新总token统计（使用全量计算）
+                        self.token_counter.update_total_stats(self.messages)
+                        
+                        # 显示LLM输出后的token统计
+                        self.frontend.output('info', f"{self.token_counter.get_total_summary()}")
 
                     # 处理工具调用（若有）
                     if tool_calls_cache:
@@ -186,6 +199,9 @@ class Agent:
                             self.token_counter.add_llm_output(
                                 tool_calls=tool_calls_list
                             )
+                        
+                        # 更新总token统计（使用全量计算）
+                        self.token_counter.update_total_stats(self.messages)
                         
                         # 添加工具调用指令到对话上下文
                         self.messages.append({
@@ -218,17 +234,14 @@ class Agent:
                                     
                                     # 统计工具返回结果的token
                                     self.token_counter.add_tool_result(str(function_response))
+                                    self.frontend.output("tool_result",f"{function_response}")
                                     
-                                    # 增强工具结果展示，包含明确的操作确认
-                                    if function_name == "create_file":
-                                        self.frontend.output('tool_result', f"✅ 文件操作完成：{function_name}", result=function_response)
-                                    elif function_name == "read_file":
-                                        self.frontend.output('tool_result', f"📖 文件读取完成：{function_name}", result=function_response)
-                                    elif function_name == "find_replace":
-                                        self.frontend.output('tool_result', f"🔄 文本替换完成：{function_name}", result=function_response)
-                                    else:
-                                        self.frontend.output('tool_result', f"✅ 工具执行成功：{function_name}", result=function_response)
-                                        
+                                    # 更新总token统计（使用全量计算）
+                                    self.token_counter.update_total_stats(self.messages)
+                                    
+                                    # 显示工具返回后的token统计
+                                    self.frontend.output('info', f"{self.token_counter.get_current_operation_summary('tool_result')}")
+                                    self.frontend.output('info', f"{self.token_counter.get_total_summary()}")
                                 except Exception as e:
                                     self.frontend.output('error', f"❌ 工具执行失败：{function_name} - {str(e)}")
                             else:
@@ -239,9 +252,8 @@ class Agent:
 
                     self.frontend.output('info', "\n")
 
-                # 完成当前轮次token统计并显示
+                # 完成当前轮次token统计
                 self.token_counter.finish_round()
-                self.frontend.output('round_tokens', self.token_counter.get_round_summary())
                 
                 self.frontend.output('info', "\n")
 
