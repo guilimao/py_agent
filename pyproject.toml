@@ -31,7 +31,6 @@ dependencies = [
     "json_repair>=0.47.6",
     "openai>=1.93.0",
     "prompt_toolkit>=3.0.51",
-    "pillow>=10.0.0",
 ]
 
 [project.optional-dependencies]
