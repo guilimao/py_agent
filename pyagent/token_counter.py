@@ -280,4 +280,4 @@ class TokenCounter:
     def get_total_summary(self) -> str:
         """获取总token统计"""
         strategy = "tiktoken" if self.use_tiktoken else "估算"
-        return f"📊 总输入: {self.total_stats['total_input_tokens']} tokens, 总输出: {self.total_stats['total_output_tokens']} tokens, 总计: {self.total_stats['total_tokens']} tokens (使用{strategy}策略)"
+        return f"📊 总输入: {self.total_stats['total_input_tokens']} tokens, 总输出: {self.total_stats['total_output_tokens']} tokens, 总计: {self.total_stats['total_tokens']} tokens"
