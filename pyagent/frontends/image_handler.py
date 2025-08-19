@@ -114,5 +114,4 @@ class ImageHandler:
         
         # 添加所有图像
         content_parts.extend(processed_images)
-        
         return clean_text, content_parts
