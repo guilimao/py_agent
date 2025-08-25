@@ -70,9 +70,9 @@ class Agent:
                 conversation_saver.save_conversation(self.messages)
 
                 # 计算输入token总数
-                #user_tokens = self.token_counter.calculate_conversation_tokens(user_input)
+                user_tokens = self.token_counter.count_tokens(clean_text)
                 input_tokens += self.token_counter.calculate_conversation_tokens(self.messages)
-                #self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens")
+                self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens")
                 self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
                 while True:
                     full_response = ""  # LLM自然语言输出
@@ -202,7 +202,6 @@ class Agent:
                         # 计算输出token总数：工具调用token + 之前的输入token
                         output_tokens += tool_calls_tokens
                         self.frontend.output('info', f"📊 调用请求输出token量: {tool_calls_tokens}")
-                        self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
 
                         # 添加工具调用指令到对话上下文
                         self.messages.append({
@@ -235,6 +234,8 @@ class Agent:
                                     
                                     # 计算工具返回结果的token
                                     tool_result_tokens = self.token_counter.count_tokens(str(function_response))
+                                    input_tokens += tool_result_tokens
+                                    self.frontend.output("tool_result",f"{function_response}")
                                     self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
                                     self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
 

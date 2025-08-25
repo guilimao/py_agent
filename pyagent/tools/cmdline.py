@@ -136,7 +136,7 @@ class TerminalSession:
         """获取上一条命令的最后输出"""
         return self.output_lines[-count:] if len(self.output_lines) >= count else self.output_lines
     
-    def is_command_complete(self, timeout: float = 5.0) -> Tuple[bool, str]:
+    def is_command_complete(self, timeout: float = 3.0) -> Tuple[bool, str]:
         """
         检查命令是否执行完成
         返回: (是否完成, 状态描述)
