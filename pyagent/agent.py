@@ -4,6 +4,7 @@ from .tools import TOOL_FUNCTIONS, TOOLS
 from .token_counter import TokenCounter
 from .frontends.image_handler import ImageHandler
 from . import conversation_saver
+from .context_compressor import ContextCompressor
 import json_repair
 
 
@@ -20,6 +21,7 @@ class Agent:
         self.messages = [{"role": "system", "content": system_prompt}]
         self.model_name = model_name
         self.token_counter = TokenCounter(model_name)
+        self.context_compressor = ContextCompressor(keep_recent_rounds=2)
         
         # 设置系统初始token（系统提示+工具定义）
         from .tools import TOOLS
@@ -92,15 +94,24 @@ class Agent:
 
                     # 过滤掉thinking字段
                     filtered_messages = self.filter_thinking_field(self.messages)
+                    
+                    # 压缩上下文以节省token
+                    compressed_messages = self.context_compressor.compress_context(filtered_messages)
+                    
+                    # 获取压缩统计信息
+                    if len(filtered_messages) > 4:  # 只有消息足够多才显示压缩信息
+                        stats = self.context_compressor.get_compression_stats(filtered_messages, compressed_messages)
+                        if stats["saved_chars"] > 0:
+                            self.frontend.output('info', f"上下文压缩: 节省 {stats['saved_chars']} 字符 ({stats['compression_ratio']}%)")
 
                     # 调用LLM生成响应（流式）
                     stream = self.client.chat.completions.create(
                         model=self.model_name,
-                        messages=filtered_messages,
+                        messages=compressed_messages,
                         stream=True,
                         tools=TOOLS,
                         tool_choice="auto",
-                        max_tokens=16384,
+                        max_tokens=16300,
                     #    extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
                     )
 
