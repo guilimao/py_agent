@@ -25,8 +25,7 @@ class Agent:
         
         # 设置系统初始token（系统提示+工具定义）
         from .tools import TOOLS
-        self.token_counter.set_initial_tokens(system_prompt, TOOLS)  
-
+        self.token_counter.set_initial_tokens(system_prompt, TOOLS)
 
     def filter_thinking_field(self, messages):
         """过滤掉消息列表中的thinking字段"""
@@ -49,6 +48,8 @@ class Agent:
     def run(self):
         try:
             self.frontend.start_session()
+            input_tokens = 0
+            output_tokens = 0
             while True:
                 # 获取用户输入
                 user_input, has_input = self.frontend.get_input()
@@ -57,16 +58,6 @@ class Agent:
                 
                 # 处理用户输入，提取图像
                 clean_text, content_parts = ImageHandler.process_user_input(user_input)
-                
-                # 开始新一轮token统计
-                self.token_counter.start_new_round()
-                
-                # 计算文本内容的token（如果有）
-                if clean_text:
-                    self.token_counter.add_user_input(clean_text)
-                else:
-                    # 只有图像的情况，计算一个基础token数
-                    self.token_counter.add_user_input("[图像输入]")
                 
                 # 添加用户输入到对话上下文
                 if content_parts:
@@ -78,12 +69,11 @@ class Agent:
                 
                 conversation_saver.save_conversation(self.messages)
 
-                # 更新总token统计（使用全量计算）
-                self.token_counter.update_total_stats(self.messages)
-                
-                # 显示用户输入后的token统计
-                self.frontend.output('info', f"{self.token_counter.get_total_summary()}")
-
+                # 计算输入token总数
+                #user_tokens = self.token_counter.calculate_conversation_tokens(user_input)
+                input_tokens += self.token_counter.calculate_conversation_tokens(self.messages)
+                #self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens")
+                self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
                 while True:
                     full_response = ""  # LLM自然语言输出
                     tool_calls_cache = {}  # 工具调用缓存
@@ -111,7 +101,7 @@ class Agent:
                         stream=True,
                         tools=TOOLS,
                         tool_choice="auto",
-                        max_tokens=16300,
+                    #    max_tokens=16300,
                     #    extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
                     )
 
@@ -172,23 +162,26 @@ class Agent:
                         })
                         conversation_saver.save_conversation(self.messages)
                         
-                        # 统计LLM输出token（思维链+自然语言）
-                        self.token_counter.add_llm_output(
-                            thinking=reasoning_content,
-                            content=full_response
-                        )
+                        # 计算LLM输出的token数量
+                        reasoning_tokens = 0
+                        response_tokens = 0
+                        if reasoning_content:
+                            reasoning_tokens = self.token_counter.count_tokens(reasoning_content)
+                            output_tokens += reasoning_tokens
+                        if full_response:
+                            response_tokens = self.token_counter.count_tokens(full_response)
+                            output_tokens += response_tokens
                         
-                        # 更新总token统计（使用全量计算）
-                        self.token_counter.update_total_stats(self.messages)
-                        
-                        # 显示LLM输出后的token统计
-                        self.frontend.output('info', f"{self.token_counter.get_total_summary()}")
+                        # 显示用户输入后的token统计 + LLM输出后的token统计
+                        self.frontend.output('info', f"📊 思考输出: {reasoning_tokens} tokens  📊 回答输出: {response_tokens} tokens")
+                        self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
 
                     # 处理工具调用（若有）
                     if tool_calls_cache:
                         self.frontend.output('info', "\n工具参数接收完成，开始执行...")
                         
-                        # 统计工具调用token
+                        # 计算工具调用的token
+                        tool_calls_tokens = 0
                         tool_calls_list = [
                             {
                                 'id': tool_call['id'],
@@ -200,20 +193,17 @@ class Agent:
                             } for tool_call in tool_calls_cache.values()
                         ]
                         
-                        # 添加工具调用token统计（如果还没有统计过思维链）
-                        if not full_response:  # 只有工具调用，没有自然语言输出
-                            self.token_counter.add_llm_output(
-                                thinking=reasoning_content,
-                                tool_calls=tool_calls_list
-                            )
-                        else:  # 已经有自然语言输出，只统计工具调用
-                            self.token_counter.add_llm_output(
-                                tool_calls=tool_calls_list
-                            )
+                        for tool_call in tool_calls_list:
+                            if "function" in tool_call:
+                                func_name = tool_call["function"].get("name", "")
+                                func_args = tool_call["function"].get("arguments", "")
+                                tool_calls_tokens += self.token_counter.count_tokens(func_name) + self.token_counter.count_tokens(func_args)
                         
-                        # 更新总token统计（使用全量计算）
-                        self.token_counter.update_total_stats(self.messages)
-                        
+                        # 计算输出token总数：工具调用token + 之前的输入token
+                        output_tokens += tool_calls_tokens
+                        self.frontend.output('info', f"📊 调用请求输出token量: {tool_calls_tokens}")
+                        self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
+
                         # 添加工具调用指令到对话上下文
                         self.messages.append({
                             "role": "assistant",
@@ -243,16 +233,11 @@ class Agent:
                                     })
                                     conversation_saver.save_conversation(self.messages)
                                     
-                                    # 统计工具返回结果的token
-                                    self.token_counter.add_tool_result(str(function_response))
-                                    self.frontend.output("tool_result",f"{function_response}")
-                                    
-                                    # 更新总token统计（使用全量计算）
-                                    self.token_counter.update_total_stats(self.messages)
-                                    
-                                    # 显示工具返回后的token统计
-                                    self.frontend.output('info', f"{self.token_counter.get_current_operation_summary('tool_result')}")
-                                    self.frontend.output('info', f"{self.token_counter.get_total_summary()}")
+                                    # 计算工具返回结果的token
+                                    tool_result_tokens = self.token_counter.count_tokens(str(function_response))
+                                    self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
+                                    self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
+
                                 except Exception as e:
                                     self.frontend.output('error', f"❌ 工具执行失败：{function_name} - {str(e)}")
                             else:
@@ -262,11 +247,6 @@ class Agent:
                         break
 
                     self.frontend.output('info', "\n")
-
-                # 完成当前轮次token统计
-                self.token_counter.finish_round()
-                
-                self.frontend.output('info', "\n")
 
         except Exception as e:
             self.frontend.output('error', f"发生错误: {str(e)}")
