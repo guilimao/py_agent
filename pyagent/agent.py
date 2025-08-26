@@ -74,11 +74,11 @@ class Agent:
                 input_tokens += self.token_counter.calculate_conversation_tokens(self.messages)
                 self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens")
                 self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
+                tool_result_tokens = 0
                 while True:
                     full_response = ""  # LLM自然语言输出
                     tool_calls_cache = {}  # 工具调用缓存
                     reasoning_content = ""  # LLM思考过程
-
                     # 状态标志
                     has_received_reasoning = False
 
@@ -101,7 +101,7 @@ class Agent:
                         stream=True,
                         tools=TOOLS,
                         tool_choice="auto",
-                    #    max_tokens=16300,
+                        max_tokens=16300,
                     #    extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
                     )
 
@@ -234,7 +234,7 @@ class Agent:
                                     
                                     # 计算工具返回结果的token
                                     tool_result_tokens = self.token_counter.count_tokens(str(function_response))
-                                    input_tokens += tool_result_tokens
+                                    input_tokens = input_tokens + tool_result_tokens
                                     self.frontend.output("tool_result",f"{function_response}")
                                     self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
                                     self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
