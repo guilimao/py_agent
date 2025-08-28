@@ -234,7 +234,7 @@ class Agent:
                                     
                                     # 计算工具返回结果的token
                                     tool_result_tokens = self.token_counter.count_tokens(str(function_response))
-                                    input_tokens = input_tokens + tool_result_tokens
+                                    input_tokens += input_tokens + tool_result_tokens
                                     self.frontend.output("tool_result",f"{function_response}")
                                     self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
                                     self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
