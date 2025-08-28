@@ -48,8 +48,8 @@ class Agent:
     def run(self):
         try:
             self.frontend.start_session()
-            input_tokens = 0
-            output_tokens = 0
+            total_input_tokens = 0
+            total_output_tokens = 0
             while True:
                 # 获取用户输入
                 user_input, has_input = self.frontend.get_input()
@@ -71,9 +71,7 @@ class Agent:
 
                 # 计算输入token总数
                 user_tokens = self.token_counter.count_tokens(clean_text)
-                input_tokens += self.token_counter.calculate_conversation_tokens(self.messages)
                 self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens")
-                self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
                 tool_result_tokens = 0
                 while True:
                     full_response = ""  # LLM自然语言输出
@@ -87,12 +85,14 @@ class Agent:
                     
                     # 压缩上下文以节省token
                     compressed_messages = self.context_compressor.compress_context(filtered_messages)
-                    
+
+                    total_input_tokens += self.token_counter.calculate_conversation_tokens(compressed_messages)
+                    self.frontend.output('info', f"📊 输入token总量: {total_input_tokens} tokens  📊 输出token总量: {total_output_tokens} tokens")
+
                     # 获取压缩统计信息
-                    if len(filtered_messages) > 4:  # 只有消息足够多才显示压缩信息
-                        stats = self.context_compressor.get_compression_stats(filtered_messages, compressed_messages)
-                        if stats["saved_chars"] > 0:
-                            self.frontend.output('info', f"上下文压缩: 节省 {stats['saved_chars']} 字符 ({stats['compression_ratio']}%)")
+                    stats = self.context_compressor.get_compression_stats(filtered_messages, compressed_messages)
+                    if stats["saved_chars"] > 0:
+                        self.frontend.output('info', f"上下文压缩: 节省 {stats['saved_chars']} 字符 ({stats['compression_ratio']}%)")
 
                     # 调用LLM生成响应（流式）
                     stream = self.client.chat.completions.create(
@@ -167,14 +167,14 @@ class Agent:
                         response_tokens = 0
                         if reasoning_content:
                             reasoning_tokens = self.token_counter.count_tokens(reasoning_content)
-                            output_tokens += reasoning_tokens
+                            total_output_tokens += reasoning_tokens
                         if full_response:
                             response_tokens = self.token_counter.count_tokens(full_response)
-                            output_tokens += response_tokens
+                            total_output_tokens += response_tokens
                         
                         # 显示用户输入后的token统计 + LLM输出后的token统计
                         self.frontend.output('info', f"📊 思考输出: {reasoning_tokens} tokens  📊 回答输出: {response_tokens} tokens")
-                        self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
+                        self.frontend.output('info', f"📊 输入token总量: {total_input_tokens} tokens  📊 输出token总量: {total_output_tokens} tokens")
 
                     # 处理工具调用（若有）
                     if tool_calls_cache:
@@ -200,7 +200,7 @@ class Agent:
                                 tool_calls_tokens += self.token_counter.count_tokens(func_name) + self.token_counter.count_tokens(func_args)
                         
                         # 计算输出token总数：工具调用token + 之前的输入token
-                        output_tokens += tool_calls_tokens
+                        total_output_tokens += tool_calls_tokens
                         self.frontend.output('info', f"📊 调用请求输出token量: {tool_calls_tokens}")
 
                         # 添加工具调用指令到对话上下文
@@ -234,10 +234,8 @@ class Agent:
                                     
                                     # 计算工具返回结果的token
                                     tool_result_tokens = self.token_counter.count_tokens(str(function_response))
-                                    input_tokens += input_tokens + tool_result_tokens
                                     self.frontend.output("tool_result",f"{function_response}")
                                     self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
-                                    self.frontend.output('info', f"📊 输入token总量: {input_tokens} tokens  📊 输出token总量: {output_tokens} tokens")
 
                                 except Exception as e:
                                     self.frontend.output('error', f"❌ 工具执行失败：{function_name} - {str(e)}")
@@ -246,8 +244,6 @@ class Agent:
                     else:
                         # 无工具调用时结束当前轮次
                         break
-
-                    self.frontend.output('info', "\n")
 
         except Exception as e:
             self.frontend.output('error', f"发生错误: {str(e)}")

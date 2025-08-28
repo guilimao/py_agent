@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 class ContextCompressor:
     """上下文压缩器，用于压缩对话历史以节省token"""
     
-    def __init__(self, keep_recent_rounds: int = 10):
+    def __init__(self, keep_recent_rounds: int = 0):
         """
         初始化压缩器
         :param keep_recent_rounds: 保留最近几轮的完整信息
@@ -15,17 +15,17 @@ class ContextCompressor:
     def compress_context(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         压缩对话上下文
-        1. 将十轮之前的工具调用记录的参数信息改为"略"
-        2. 将十轮之前工具调用的结果信息缩短，只保留前100个字符
+        1. 将工具调用记录的参数信息改为"略"
+        2. 将工具调用的结果信息缩短，只保留前100个字符
         """
-        if len(messages) <= 10:
+        if len(messages) <= 5:
             return messages
         
         # 分离系统消息和用户对话消息
         system_messages = [msg for msg in messages if msg.get("role") == "system"]
         conversation_messages = [msg for msg in messages if msg.get("role") != "system"]
         
-        if len(conversation_messages) <= 10:
+        if len(conversation_messages) <= 5:
             return messages
         
         compressed_messages = system_messages.copy()
