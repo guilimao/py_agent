@@ -1,52 +1,21 @@
-[build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "pyagent"
-version = "1.0.0"
-description = "一个使用Python构建的命令行LLM代理示例"
-readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "MIT"}
+version = "0.1.0"
+description = ""
 authors = [
-    {name = "Guilimao", email = "guilimao@foxmail.com"},
+    {name = "Guilimao_Official",email = "1137056144@qq.com"}
 ]
-keywords = ["llm", "agent", "cli", "ai", "chatbot"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Operating System :: OS Independent",
-]
+readme = "README.md"
+requires-python = ">=3.13"
 dependencies = [
-    "chardet>=5.2.0",
-    "json_repair>=0.47.6",
-    "openai>=1.93.0",
-    "prompt_toolkit>=3.0.51",
+    "openai (>=1.102.0,<2.0.0)",
+    "prompt-toolkit (>=3.0.52,<4.0.0)",
+    "chardet (>=5.2.0,<6.0.0)",
+    "json-repair (>=0.50.0,<0.51.0)",
+    "tiktoken (>=0.11.0,<0.12.0)"
 ]
 
-[project.optional-dependencies]
-tiktoken = ["tiktoken>=0.5.0"]
 
-[project.urls]
-Homepage = "https://github.com/guilimao/py_agent"
-"Bug Reports" = "https://github.com/guilimao/py_agent/issues"
-"Source" = "https://github.com/guilimao/py_agent"
-
-[project.scripts]
-pyagent = "pyagent.main:main"
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["pyagent*"]
-
-[tool.setuptools.package-data]
-pyagent = ["config/*.json", "config/*.txt"]
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
