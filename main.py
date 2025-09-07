@@ -1,5 +1,5 @@
 # py_agent/main.py
-from pyagent.__main__ import main
+from pyagent.main import main
 
 if __name__ == "__main__":
     main()
