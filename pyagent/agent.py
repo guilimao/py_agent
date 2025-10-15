@@ -101,8 +101,7 @@ class Agent:
                         stream=True,
                         tools=TOOLS,
                         tool_choice="auto",
-                        max_tokens=16300,
-                    #    extra_body={"enable_thinking": True if "qwen" in self.model_name.lower() else False}
+                        max_tokens=32000,
                     )
 
                     finish_reason = None
