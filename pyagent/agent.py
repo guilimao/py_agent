@@ -27,23 +27,6 @@ class Agent:
         from .tools import TOOLS
         self.token_counter.set_initial_tokens(system_prompt, TOOLS)
 
-    def filter_thinking_field(self, messages):
-        """过滤掉消息列表中的thinking字段"""
-        filtered_messages = []
-        for message in messages:
-            new_message = message.copy()
-            new_message.pop("thinking", None)
-            
-            # 处理content为列表的情况
-            if isinstance(new_message.get("content"), list):
-                # 保留content列表，但确保没有thinking字段
-                pass
-            elif isinstance(new_message.get("content"), str):
-                # 字符串内容保持不变
-                pass
-            
-            filtered_messages.append(new_message)
-        return filtered_messages
 
     def run(self):
         try:
@@ -80,17 +63,16 @@ class Agent:
                     # 状态标志
                     has_received_reasoning = False
 
-                    # 过滤掉thinking字段
-                    filtered_messages = self.filter_thinking_field(self.messages)
-                    
                     # 压缩上下文以节省token
-                    compressed_messages = self.context_compressor.compress_context(filtered_messages)
+                    compressed_messages = self.context_compressor.compress_context(self.messages)
 
-                    total_input_tokens += self.token_counter.calculate_conversation_tokens(compressed_messages)
-                    self.frontend.output('info', f"📊 输入token总量: {total_input_tokens} tokens  📊 输出token总量: {total_output_tokens} tokens")
+                    # 计算本次请求的上下文窗口token量
+                    context_window_tokens = self.token_counter.calculate_conversation_tokens(compressed_messages)
+                    total_input_tokens += context_window_tokens
+                    self.frontend.output('info', f"📊 上下文窗口: {context_window_tokens/1000} 千tokens 📊 输入token总量: {total_input_tokens} tokens  📊 输出token总量: {total_output_tokens} tokens")
 
                     # 获取压缩统计信息
-                    stats = self.context_compressor.get_compression_stats(filtered_messages, compressed_messages)
+                    stats = self.context_compressor.get_compression_stats(self.messages, compressed_messages)
                     if stats["saved_chars"] > 0:
                         self.frontend.output('info', f"上下文压缩: 节省 {stats['saved_chars']} 字符 ({stats['compression_ratio']}%)")
 
