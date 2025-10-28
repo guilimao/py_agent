@@ -42,6 +42,9 @@ class Agent:
                 # 处理用户输入，提取图像
                 clean_text, content_parts = ImageHandler.process_user_input(user_input)
                 
+                # 统计图像数量
+                image_count = len([part for part in content_parts if part.get("type") == "image_url"])
+                
                 # 添加用户输入到对话上下文
                 if content_parts:
                     # 使用content列表格式（包含文本和图像）
@@ -54,7 +57,8 @@ class Agent:
 
                 # 计算输入token总数
                 user_tokens = self.token_counter.count_tokens(clean_text)
-                self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens")
+                image_info = f" 已添加图像: {image_count}张" if image_count > 0 else ""
+                self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens{image_info}")
                 tool_result_tokens = 0
                 while True:
                     full_response = ""  # LLM自然语言输出
