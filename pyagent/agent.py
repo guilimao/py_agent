@@ -14,12 +14,14 @@ class Agent:
         client: OpenAI, 
         frontend: FrontendInterface, 
         system_prompt: str, 
-        model_name: str
+        model_name: str,
+        model_parameters: list = None
     ):
         self.client = client
         self.frontend = frontend
         self.messages = [{"role": "system", "content": system_prompt}]
         self.model_name = model_name
+        self.model_parameters = model_parameters or []
         self.token_counter = TokenCounter(model_name)
         self.context_compressor = ContextCompressor(keep_recent_rounds=2)
         
@@ -80,15 +82,28 @@ class Agent:
                     if stats["saved_chars"] > 0:
                         self.frontend.output('info', f"上下文压缩: 节省 {stats['saved_chars']} 字符 ({stats['compression_ratio']}%)")
 
+                    # 构建默认参数
+                    api_params = {
+                        "model": self.model_name,
+                        "messages": compressed_messages,
+                        "stream": True,
+                        "tools": TOOLS,
+                        "max_tokens": 32000,
+                    }
+                    
+                    # 应用模型参数
+                    for param in self.model_parameters:
+                        if isinstance(param, list) and len(param) == 2:
+                            key, value = param
+                            # 如果参数值为"Delete"，则从api_params中移除该参数
+                            if value == "Delete":
+                                if key in api_params:
+                                    del api_params[key]
+                            else:
+                                api_params[key] = value
+                    
                     # 调用LLM生成响应（流式）
-                    stream = self.client.chat.completions.create(
-                        model=self.model_name,
-                        messages=compressed_messages,
-                        stream=True,
-                        tools=TOOLS,
-                        tool_choice="auto",
-                        max_tokens=32000,
-                    )
+                    stream = self.client.chat.completions.create(**api_params)
 
                     finish_reason = None
                     for chunk in stream:

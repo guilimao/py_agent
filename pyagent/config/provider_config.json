@@ -2,37 +2,168 @@
     "doubao": {
         "api_key_env": "ARK_API_KEY",
         "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "models": ["doubao-seed-1-6-250615", "deepseek-v3-1-250821","doubao-seed-1-6-thinking-250615","kimi-k2-250711"]
+        "models": [
+            {
+                "name": "doubao-seed-1-6-250615",
+                "parameters": []
+            },
+            {
+                "name": "deepseek-v3-1-250821",
+                "parameters": []
+            },
+            {
+                "name": "doubao-seed-1-6-thinking-250615",
+                "parameters": []
+            },
+            {
+                "name": "kimi-k2-250711",
+                "parameters": []
+            }
+        ]
     },
     "deepseek": {
         "api_key_env": "DEEPSEEK_API_KEY",
         "base_url": "https://api.deepseek.com/v1",
-        "models": ["deepseek-chat", "deepseek-reasoner"]
+        "models": [
+            {
+                "name": "deepseek-chat",
+                "parameters": [
+                    ["max_tokens",8000]
+                ]
+            },
+            {
+                "name": "deepseek-reasoner",
+                "parameters": [
+                    ["max_tokens",64000],
+                    ["tools","Delete"]
+                ]
+            }
+        ]
     },
     "aliyun": {
         "api_key_env": "DASHSCOPE_API_KEY",
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "models": ["qwen3-vl-plus","qwen3-max", "qwen3-vl-235b-a22b-thinking","qwen3-next-80b-a3b-thinking","qwen3-vl-flash","qwen3-next-80b-a3b-instruct","qwen3-vl-8b-thinking","qwen3-vl-8b-instruct"]
+        "models": [
+            {
+                "name": "qwen3-vl-plus",
+                "parameters": [
+                    ["tools","Delete"],
+                    ["extra_body", {
+                        "vl_high_resolution_images": true,
+                        "enable_thinking": false
+                    }]
+                ]
+            },
+            {
+                "name": "qwen3-max",
+                "parameters": []
+            },
+            {
+                "name": "qwen3-vl-235b-a22b-thinking",
+                "parameters": [
+                    ["tools","Delete"],
+                    ["extra_body", {
+                        "vl_high_resolution_images": true,
+                        "enable_thinking": false
+                    }]
+                ]
+            },
+            {
+                "name": "qwen3-next-80b-a3b-thinking",
+                "parameters": []
+            },
+            {
+                "name": "qwen3-vl-flash",
+                "parameters": [
+                    ["tools","Delete"],
+                    ["extra_body", {
+                        "vl_high_resolution_images": true,
+                        "enable_thinking": false
+                    }]
+                ]
+            },
+            {
+                "name": "qwen3-next-80b-a3b-instruct",
+                "parameters": []
+            },
+            {
+                "name": "qwen3-vl-32b-thinking",
+                "parameters": [
+                    ["tools","Delete"],
+                    ["extra_body", {
+                        "vl_high_resolution_images": true,
+                        "enable_thinking": false
+                    }]
+                ]
+            },
+            {
+                "name": "qwen3-vl-32b-instruct",
+                "parameters": [
+                    ["tools","Delete"],
+                    ["extra_body", {
+                        "vl_high_resolution_images": true,
+                        "enable_thinking": false
+                    }]
+                ]
+            }
+        ]
     },
     "tencent": {
         "api_key_env": "HUNYUAN_API_KEY",
         "base_url": "https://api.hunyuan.cloud.tencent.com/v1",
-        "models": ["hunyuan-t1-latest","hunyuan-turbos-latest"]
-
+        "models": [
+            {
+                "name": "hunyuan-t1-latest",
+                "parameters": []
+            },
+            {
+                "name": "hunyuan-turbos-latest",
+                "parameters": []
+            }
+        ]
     },
     "moonshot": {
         "api_key_env": "MOONSHOT_API_KEY",
         "base_url": "https://api.moonshot.cn/v1",
-        "models": ["kimi-k2-0905-preview","kimi-k2-turbo-preview"]
+        "models": [
+            {
+                "name": "kimi-k2-0905-preview",
+                "parameters": [
+                    ["max_tokens",200000],
+                    ["temperature",0.6]
+                ]
+            },
+            {
+                "name": "kimi-k2-turbo-preview",
+                "parameters": [
+                    ["max_tokens",200000],
+                    ["temperature",0.6]
+                ]
+            }
+        ]
     },
     "ollama": {
         "api_key_env": "OLLAMA_KEY",
         "base_url": "http://localhost:11434/v1/",
-        "models": ["deepseek-r1:1.5b","qwen3:4b"]
+        "models": [
+            {
+                "name": "deepseek-r1:1.5b",
+                "parameters": []
+            },
+            {
+                "name": "qwen3:4b",
+                "parameters": []
+            }
+        ]
     },
     "openai": {
         "api_key_env": "OPENAI_API_KEY",
         "base_url": "https://api.openai.com/v1",
-        "models": ["gpt-5-2025-08-07"]
+        "models": [
+            {
+                "name": "gpt-5-2025-08-07",
+                "parameters": []
+            }
+        ]
     }
 }

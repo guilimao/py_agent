@@ -10,12 +10,50 @@ def load_provider_config():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(script_dir, "config", "provider_config.json")
     with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        config = json.load(f)
+    
+    # 验证配置格式
+    validate_provider_config(config)
+    return config
+
+def validate_provider_config(config: dict):
+    """验证提供商配置格式"""
+    for provider_name, provider_config in config.items():
+        if not isinstance(provider_config, dict):
+            raise ValueError(f"提供商 {provider_name} 的配置必须是对象")
+        
+        if "api_key_env" not in provider_config:
+            raise ValueError(f"提供商 {provider_name} 缺少 api_key_env 配置")
+        
+        if "base_url" not in provider_config:
+            raise ValueError(f"提供商 {provider_name} 缺少 base_url 配置")
+        
+        if "models" not in provider_config:
+            raise ValueError(f"提供商 {provider_name} 缺少 models 配置")
+        
+        models = provider_config["models"]
+        if not isinstance(models, list):
+            raise ValueError(f"提供商 {provider_name} 的 models 必须是数组")
+        
+        for i, model in enumerate(models):
+            if not isinstance(model, dict):
+                raise ValueError(f"提供商 {provider_name} 的模型 {i} 必须是对象")
+            
+            if "name" not in model:
+                raise ValueError(f"提供商 {provider_name} 的模型 {i} 缺少 name 属性")
+            
+            if "parameters" not in model:
+                raise ValueError(f"提供商 {provider_name} 的模型 {i} 缺少 parameters 属性")
+            
+            if not isinstance(model["parameters"], list):
+                raise ValueError(f"提供商 {provider_name} 的模型 {i} 的 parameters 必须是数组")
 
 def get_provider_from_model(model_name: str, provider_config: dict) -> str:
     for provider, config in provider_config.items():
-        if model_name in config.get("models", []):
-            return provider
+        models = config.get("models", [])
+        for model in models:
+            if isinstance(model, dict) and model.get("name") == model_name:
+                return provider
     raise ValueError(f"未找到支持模型 {model_name} 的提供商，请检查 config/provider_config.json 配置")
 
 def load_all_models(provider_config: dict) -> list:
@@ -23,12 +61,14 @@ def load_all_models(provider_config: dict) -> list:
     models = []
     for provider, config in provider_config.items():
         for model in config.get("models", []):
-            models.append({
-                "name": model,
-                "provider": provider,
-                "api_key_env": config["api_key_env"],
-                "base_url": config["base_url"]
-            })
+            if isinstance(model, dict):
+                models.append({
+                    "name": model.get("name"),
+                    "provider": provider,
+                    "api_key_env": config["api_key_env"],
+                    "base_url": config["base_url"],
+                    "parameters": model.get("parameters", [])
+                })
     return models
 
 def select_model_interactive(models: list) -> dict:
@@ -138,7 +178,8 @@ def main():
         client=client,
         frontend=frontend,
         system_prompt=get_system_prompt(),
-        model_name=selected_model["name"]
+        model_name=selected_model["name"],
+        model_parameters=selected_model.get("parameters", [])
     )
     
     agent.run()
