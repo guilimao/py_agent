@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Iterator, Optional
 import json
 from .sdk_factory import SDKFactory
+from .conversation_manager import StreamEvent
 
 
 class LLMStreamResponse:
@@ -47,6 +48,39 @@ class BaseLLMAdapter(ABC):
     def get_model_name(self) -> str:
         """获取当前使用的模型名称"""
         pass
+    
+    def create_chat_completion_with_events(self, **kwargs) -> Iterator['StreamEvent']:
+        """创建聊天完成，返回统一的事件流（可选实现）"""
+        
+        for response in self.create_chat_completion(**kwargs):
+            # 处理思考内容
+            if hasattr(response.choices[0].delta, 'reasoning_content') and response.choices[0].delta.reasoning_content:
+                yield StreamEvent(
+                    event_type='thinking',
+                    data=response.choices[0].delta.reasoning_content
+                )
+            
+            # 处理自然语言内容
+            if response.choices[0].delta.content:
+                yield StreamEvent(
+                    event_type='content',
+                    data=response.choices[0].delta.content
+                )
+            
+            # 处理工具调用
+            if hasattr(response.choices[0].delta, 'tool_calls') and response.choices[0].delta.tool_calls:
+                for tool_call in response.choices[0].delta.tool_calls:
+                    yield StreamEvent(
+                        event_type='tool_call',
+                        data=tool_call
+                    )
+            
+            # 处理完成事件
+            if response.finish_reason:
+                yield StreamEvent(
+                    event_type='finish',
+                    data=response.finish_reason
+                )
 
 
 class OpenAICompatibleAdapter(BaseLLMAdapter):
@@ -97,12 +131,28 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
             # 将底层异常包装为统一异常
             raise LLMException(f"LLM调用失败: {str(e)}") from e
     
+    def create_chat_completion_with_events(self, **kwargs) -> Iterator['StreamEvent']:
+        """创建聊天完成，返回统一的事件流（新接口）"""
+        try:
+            # 调用底层SDK的流式接口
+            stream = self.client.chat.completions.create(**kwargs)
+            
+            for chunk in stream:
+                # 使用事件转换器转换chunk为统一事件
+                event = StreamEventConverter.convert_openai_chunk(chunk)
+                if event:
+                    yield event
+                
+        except Exception as e:
+            # 将底层异常包装为统一异常
+            raise LLMException(f"LLM调用失败: {str(e)}") from e
+    
     def get_model_name(self) -> str:
         return self.model_name
 
 
 class AnthropicAdapter(BaseLLMAdapter):
-    """Anthropic Claude适配器（示例，用于展示如何适配不同接口）"""
+    """Anthropic Claude适配器"""
     
     def __init__(self, client, model_name: str):
         self.client = client
@@ -139,6 +189,29 @@ class AnthropicAdapter(BaseLLMAdapter):
         except Exception as e:
             raise LLMException(f"Anthropic LLM调用失败: {str(e)}") from e
     
+    def create_chat_completion_with_events(self, **kwargs) -> Iterator['StreamEvent']:
+        """创建聊天完成，返回统一的事件流（新接口）"""
+        # 转换消息格式（如果需要）
+        messages = kwargs.get('messages', [])
+        
+        # 调用Anthropic的API
+        try:
+            response = self.client.messages.create(
+                model=self.model_name,
+                messages=messages,
+                stream=True,
+                max_tokens=kwargs.get('max_tokens', 4000)
+            )
+            
+            for chunk in response:
+                # 使用事件转换器转换chunk为统一事件
+                event = StreamEventConverter.convert_anthropic_chunk(chunk)
+                if event:
+                    yield event
+                
+        except Exception as e:
+            raise LLMException(f"Anthropic LLM调用失败: {str(e)}") from e
+    
     def get_model_name(self) -> str:
         return self.model_name
 
@@ -146,6 +219,76 @@ class AnthropicAdapter(BaseLLMAdapter):
 class LLMException(Exception):
     """LLM调用相关的异常"""
     pass
+
+
+class StreamEventConverter:
+    """流式事件转换器 - 将不同SDK的响应转换为统一事件"""
+    
+    @staticmethod
+    def convert_openai_chunk(chunk) -> Optional['StreamEvent']:
+        """转换OpenAI格式的chunk为统一事件"""
+        
+        if not hasattr(chunk, 'choices') or not chunk.choices:
+            return None
+        
+        original_choice = chunk.choices[0]
+        
+        # 处理完成事件
+        if hasattr(original_choice, 'finish_reason') and original_choice.finish_reason:
+            return StreamEvent(
+                event_type='finish',
+                data=original_choice.finish_reason
+            )
+        
+        # 处理delta内容
+        if hasattr(original_choice, 'delta'):
+            original_delta = original_choice.delta
+            
+            # 处理思考内容（reasoning_content）
+            if hasattr(original_delta, 'reasoning_content') and original_delta.reasoning_content:
+                return StreamEvent(
+                    event_type='thinking',
+                    data=original_delta.reasoning_content
+                )
+            
+            # 处理自然语言内容
+            if hasattr(original_delta, 'content') and original_delta.content:
+                return StreamEvent(
+                    event_type='content',
+                    data=original_delta.content
+                )
+            
+            # 处理工具调用
+            if hasattr(original_delta, 'tool_calls') and original_delta.tool_calls:
+                return StreamEvent(
+                    event_type='tool_call',
+                    data=original_delta.tool_calls[0] if original_delta.tool_calls else None
+                )
+        
+        return None
+    
+    @staticmethod
+    def convert_anthropic_chunk(chunk) -> Optional['StreamEvent']:
+        """转换Anthropic格式的chunk为统一事件"""
+        
+        # 处理内容事件
+        if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
+            return StreamEvent(
+                event_type='content',
+                data=chunk.delta.text
+            )
+        
+        # 处理完成事件
+        if hasattr(chunk, 'type') and chunk.type == 'message_stop':
+            return StreamEvent(
+                event_type='finish',
+                data='stop'
+            )
+        
+        # Anthropic目前不支持思考内容和工具调用的流式输出
+        # 这里可以根据实际API进行调整
+        
+        return None
 
 
 class LLMAdapterFactory:
@@ -159,7 +302,7 @@ class LLMAdapterFactory:
         根据提供商和SDK类型创建相应的适配器
         
         Args:
-            provider: 提供商名称（如 'openai', 'doubao', 'deepseek' 等）
+            provider: 提供商名称
             client: 底层SDK客户端对象（如果提供，则直接使用）
             model_name: 模型名称（可选，如果client为None则需要提供）
             sdk_name: SDK名称（如 'openai', 'anthropic' 等），如果为None则根据提供商名称推断
@@ -221,6 +364,22 @@ class UnifiedLLMClient:
             kwargs['model'] = self.adapter.get_model_name()
         
         return self.adapter.create_chat_completion(**kwargs)
+    
+    def chat_completions_create_with_events(self, **kwargs) -> Iterator['StreamEvent']:
+        """
+        创建聊天完成，返回统一的事件流（新接口）
+        
+        Args:
+            **kwargs: 传递给底层适配器的参数
+        
+        Returns:
+            统一的流式事件迭代器
+        """
+        # 确保使用正确的模型名称
+        if 'model' not in kwargs:
+            kwargs['model'] = self.adapter.get_model_name()
+        
+        return self.adapter.create_chat_completion_with_events(**kwargs)
     
     def get_model_name(self) -> str:
         """获取当前使用的模型名称"""
