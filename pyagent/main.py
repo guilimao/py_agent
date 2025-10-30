@@ -1,9 +1,10 @@
 import os
 import json
-from openai import OpenAI
+import importlib
 from .agent import Agent
 from .config import get_system_prompt
 from .frontends import CommandlineFrontend
+from .llm_adapter import LLMAdapterFactory, UnifiedLLMClient
 
 def load_provider_config():
     # 获取当前脚本所在目录的绝对路径
@@ -11,42 +12,7 @@ def load_provider_config():
     config_path = os.path.join(script_dir, "config", "provider_config.json")
     with open(config_path, "r", encoding="utf-8") as f:
         config = json.load(f)
-    
-    # 验证配置格式
-    validate_provider_config(config)
     return config
-
-def validate_provider_config(config: dict):
-    """验证提供商配置格式"""
-    for provider_name, provider_config in config.items():
-        if not isinstance(provider_config, dict):
-            raise ValueError(f"提供商 {provider_name} 的配置必须是对象")
-        
-        if "api_key_env" not in provider_config:
-            raise ValueError(f"提供商 {provider_name} 缺少 api_key_env 配置")
-        
-        if "base_url" not in provider_config:
-            raise ValueError(f"提供商 {provider_name} 缺少 base_url 配置")
-        
-        if "models" not in provider_config:
-            raise ValueError(f"提供商 {provider_name} 缺少 models 配置")
-        
-        models = provider_config["models"]
-        if not isinstance(models, list):
-            raise ValueError(f"提供商 {provider_name} 的 models 必须是数组")
-        
-        for i, model in enumerate(models):
-            if not isinstance(model, dict):
-                raise ValueError(f"提供商 {provider_name} 的模型 {i} 必须是对象")
-            
-            if "name" not in model:
-                raise ValueError(f"提供商 {provider_name} 的模型 {i} 缺少 name 属性")
-            
-            if "parameters" not in model:
-                raise ValueError(f"提供商 {provider_name} 的模型 {i} 缺少 parameters 属性")
-            
-            if not isinstance(model["parameters"], list):
-                raise ValueError(f"提供商 {provider_name} 的模型 {i} 的 parameters 必须是数组")
 
 def get_provider_from_model(model_name: str, provider_config: dict) -> str:
     for provider, config in provider_config.items():
@@ -67,6 +33,7 @@ def load_all_models(provider_config: dict) -> list:
                     "provider": provider,
                     "api_key_env": config["api_key_env"],
                     "base_url": config["base_url"],
+                    "sdk_name": config.get("sdk_name", "openai"),  # 默认使用openai
                     "parameters": model.get("parameters", [])
                 })
     return models
@@ -164,11 +131,17 @@ def main():
                 # 用户选择返回或重新加载，继续循环
                 continue
     
-    # 创建OpenAI客户端
-    client = OpenAI(
+    # 创建LLM适配器（简化调用，让工厂同时处理SDK客户端创建）
+    adapter = LLMAdapterFactory.create_adapter(
+        provider=selected_model["provider"],
+        model_name=selected_model["name"],
+        sdk_name=selected_model["sdk_name"],
         api_key=api_key,
         base_url=selected_model["base_url"]
     )
+    
+    # 创建统一的LLM客户端
+    client = UnifiedLLMClient(adapter)
     
     # 创建命令行前端实例
     frontend = CommandlineFrontend()

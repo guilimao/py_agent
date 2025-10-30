@@ -1,17 +1,17 @@
-from openai import OpenAI
 from .frontends import FrontendInterface
 from .tools import TOOL_FUNCTIONS, TOOLS
 from .token_counter import TokenCounter
 from .frontends.image_handler import ImageHandler
 from . import conversation_saver
 from .context_compressor import ContextCompressor
+from .llm_adapter import UnifiedLLMClient
 import json_repair
 
 
 class Agent:
     def __init__(
         self, 
-        client: OpenAI, 
+        client: UnifiedLLMClient, 
         frontend: FrontendInterface, 
         system_prompt: str, 
         model_name: str,
@@ -103,7 +103,7 @@ class Agent:
                                 api_params[key] = value
                     
                     # 调用LLM生成响应（流式）
-                    stream = self.client.chat.completions.create(**api_params)
+                    stream = self.client.chat_completions_create(**api_params)
 
                     finish_reason = None
                     for chunk in stream:

@@ -2,6 +2,7 @@
     "doubao": {
         "api_key_env": "ARK_API_KEY",
         "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+        "sdk_name": "openai",
         "models": [
             {
                 "name": "doubao-seed-1-6-250615",
@@ -24,6 +25,7 @@
     "deepseek": {
         "api_key_env": "DEEPSEEK_API_KEY",
         "base_url": "https://api.deepseek.com/v1",
+        "sdk_name": "openai",
         "models": [
             {
                 "name": "deepseek-chat",
@@ -43,6 +45,7 @@
     "aliyun": {
         "api_key_env": "DASHSCOPE_API_KEY",
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "sdk_name": "openai",
         "models": [
             {
                 "name": "qwen3-vl-plus",
@@ -111,6 +114,7 @@
     "tencent": {
         "api_key_env": "HUNYUAN_API_KEY",
         "base_url": "https://api.hunyuan.cloud.tencent.com/v1",
+        "sdk_name": "openai",
         "models": [
             {
                 "name": "hunyuan-t1-latest",
@@ -125,6 +129,7 @@
     "moonshot": {
         "api_key_env": "MOONSHOT_API_KEY",
         "base_url": "https://api.moonshot.cn/v1",
+        "sdk_name": "openai",
         "models": [
             {
                 "name": "kimi-k2-0905-preview",
@@ -145,6 +150,7 @@
     "ollama": {
         "api_key_env": "OLLAMA_KEY",
         "base_url": "http://localhost:11434/v1/",
+        "sdk_name": "openai",
         "models": [
             {
                 "name": "deepseek-r1:1.5b",
@@ -159,6 +165,7 @@
     "openai": {
         "api_key_env": "OPENAI_API_KEY",
         "base_url": "https://api.openai.com/v1",
+        "sdk_name": "openai",
         "models": [
             {
                 "name": "gpt-5-2025-08-07",
