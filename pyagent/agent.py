@@ -29,6 +29,11 @@ class Agent:
         # 设置系统初始token（系统提示+工具定义）
         from .tools import TOOLS
         self.token_counter.set_initial_tokens(system_prompt, TOOLS)
+        
+        # 保存系统消息到数据库（确保系统提示被存储）
+        system_message = self.conversation_manager.get_system_message()
+        if system_message:
+            conversation_saver.save_conversation([system_message])
 
     def run(self):
         try:
@@ -50,7 +55,7 @@ class Agent:
                 
                 # 添加用户输入到对话上下文
                 self.conversation_manager.add_user_message(clean_text, content_parts)
-                conversation_saver.save_conversation(self.conversation_manager.get_messages_for_sdk())
+                conversation_saver.save_conversation([self.conversation_manager.get_last_message()])
 
                 # 计算输入token总数
                 user_tokens = self.token_counter.count_tokens(clean_text)
@@ -65,25 +70,23 @@ class Agent:
         finally:
             # 程序结束时恢复终端颜色为默认值
             self.frontend.end_session()
-            # 程序结束时保存最后一次对话
-            conversation_saver.save_conversation(self.conversation_manager.get_messages_for_sdk())
 
     def _process_conversation_round(self, total_input_tokens: int, total_output_tokens: int):
         """处理一轮对话（可能包含多个工具调用）"""
         tool_result_tokens = 0
         
         while True:
-            # 压缩上下文以节省token
-            compressed_messages = self.conversation_manager.compress_context(2)
+            # 获取完整的对话上下文（不再压缩）
+            messages = self.conversation_manager.get_messages_for_sdk()
             
             # 计算本次请求的上下文窗口token量
-            context_window_tokens = self.token_counter.calculate_conversation_tokens(compressed_messages)
+            context_window_tokens = self.token_counter.calculate_conversation_tokens(messages)
             total_input_tokens += context_window_tokens
             
-            self._show_context_stats(context_window_tokens, total_input_tokens, total_output_tokens, compressed_messages)
+            self._show_context_stats(context_window_tokens, total_input_tokens, total_output_tokens)
             
             # 构建API参数
-            api_params = self._build_api_params(compressed_messages)
+            api_params = self._build_api_params(messages)
             
             # 使用新的事件接口处理流式响应
             stream = self.client.chat_completions_create_with_events(**api_params)
@@ -112,7 +115,7 @@ class Agent:
                 result["thinking"],
                 result["tool_calls"]
             )
-            conversation_saver.save_conversation(self.conversation_manager.get_messages_for_sdk())
+            conversation_saver.save_conversation([self.conversation_manager.get_last_message()])
             
             # 处理工具调用
             if result["has_tool_calls"]:
@@ -145,19 +148,12 @@ class Agent:
         return api_params
 
     def _show_context_stats(self, context_window_tokens: int, total_input_tokens: int, 
-                           total_output_tokens: int, compressed_messages: list):
+                           total_output_tokens: int):
         """显示上下文统计信息"""
         self.frontend.output('info', 
             f"📊 上下文窗口: {context_window_tokens/1000} 千tokens "
             f"📊 输入token总量: {total_input_tokens} tokens  "
             f"📊 输出token总量: {total_output_tokens} tokens")
-        
-        # 获取压缩统计信息
-        original_messages = self.conversation_manager.get_messages_for_sdk()
-        stats = self.context_compressor.get_compression_stats(original_messages, compressed_messages)
-        if stats["saved_chars"] > 0:
-            self.frontend.output('info', 
-                f"上下文压缩: 节省 {stats['saved_chars']} 字符 ({stats['compression_ratio']}%)")
 
     def _show_response_stats(self, thinking_tokens: int, content_tokens: int, 
                            total_input_tokens: int, total_output_tokens: int):
@@ -198,7 +194,7 @@ class Agent:
                     
                     # 添加工具返回结果到对话上下文
                     self.conversation_manager.add_tool_result(tool_call_id, str(function_response))
-                    conversation_saver.save_conversation(self.conversation_manager.get_messages_for_sdk())
+                    conversation_saver.save_conversation([self.conversation_manager.get_last_message()])
                     
                     # 计算工具返回结果的token
                     tool_result_tokens = self.token_counter.count_tokens(str(function_response))

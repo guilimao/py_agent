@@ -91,6 +91,28 @@ class ConversationManager:
         """获取适配SDK的消息格式"""
         return [msg.to_dict() for msg in self.messages]
     
+    def get_last_message(self) -> Optional[Dict[str, Any]]:
+        """获取最后一条消息（用于增量保存）"""
+        if not self.messages:
+            return None
+        return self.messages[-1].to_dict()
+    
+    def get_system_message(self) -> Optional[Dict[str, Any]]:
+        """获取系统消息（用于确保系统提示被保存）"""
+        if not self.messages:
+            return None
+        # 系统消息总是在第一位
+        if self.messages[0].role == MessageRole.SYSTEM:
+            return self.messages[0].to_dict()
+        return None
+    
+    def get_last_n_messages(self, n: int) -> List[Dict[str, Any]]:
+        """获取最后n条消息（用于增量保存）"""
+        if not self.messages:
+            return []
+        start_index = max(0, len(self.messages) - n)
+        return [msg.to_dict() for msg in self.messages[start_index:]]
+    
     def get_recent_messages(self, count: int) -> List[Message]:
         """获取最近的n条消息"""
         return self.messages[-count:] if len(self.messages) > count else self.messages
@@ -164,24 +186,37 @@ class StreamResponseHandler:
     
     def _handle_tool_call_chunk(self, tool_chunk):
         """处理工具调用块"""
-        if tool_chunk.index not in self.tool_calls_cache:
-            self.tool_calls_cache[tool_chunk.index] = {
+        # 获取工具调用的索引，处理字典和对象两种情况
+        if isinstance(tool_chunk, dict):
+            tool_index = tool_chunk.get('index', 0)
+            tool_id = tool_chunk.get('id', '')
+            function_name = tool_chunk.get('function', {}).get('name', '')
+            function_args = tool_chunk.get('function', {}).get('arguments', '')
+        else:
+            # 处理对象格式（如OpenAI的tool call格式）
+            tool_index = getattr(tool_chunk, 'index', 0)
+            tool_id = getattr(tool_chunk, 'id', '')
+            function_name = getattr(getattr(tool_chunk, 'function', None), 'name', '') if hasattr(tool_chunk, 'function') else ''
+            function_args = getattr(getattr(tool_chunk, 'function', None), 'arguments', '') if hasattr(tool_chunk, 'function') else ''
+        
+        if tool_index not in self.tool_calls_cache:
+            self.tool_calls_cache[tool_index] = {
                 'id': '',
                 'function': {'name': '', 'arguments': ''}
             }
             # 首次检测到工具调用时提示
-            if hasattr(tool_chunk.function, 'name') and tool_chunk.function.name:
-                self.frontend.output('tool_call', tool_chunk.function.name)
+            if function_name:
+                self.frontend.output('tool_call', function_name)
         
         # 更新工具ID、名称、参数
-        if tool_chunk.id:
-            self.tool_calls_cache[tool_chunk.index]['id'] = tool_chunk.id
-        if hasattr(tool_chunk.function, 'name') and tool_chunk.function.name:
-            self.tool_calls_cache[tool_chunk.index]['function']['name'] = tool_chunk.function.name
-        if hasattr(tool_chunk.function, 'arguments') and tool_chunk.function.arguments:
-            self.tool_calls_cache[tool_chunk.index]['function']['arguments'] += tool_chunk.function.arguments
+        if tool_id:
+            self.tool_calls_cache[tool_index]['id'] = tool_id
+        if function_name:
+            self.tool_calls_cache[tool_index]['function']['name'] = function_name
+        if function_args:
+            self.tool_calls_cache[tool_index]['function']['arguments'] += function_args
             # 显示参数接收进度（每50字符一个点）
-            if len(self.tool_calls_cache[tool_chunk.index]['function']['arguments']) % 50 == 0:
+            if len(self.tool_calls_cache[tool_index]['function']['arguments']) % 50 == 0:
                 self.frontend.output('tool_progress', ".")
     
     def get_result(self) -> Dict[str, Any]:

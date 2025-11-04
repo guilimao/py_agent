@@ -39,12 +39,18 @@ class ConversationDatabase:
         conn.commit()
         conn.close()
     
+
+    
     def save_conversation(self, messages, session_id="default"):
         """
-        保存对话消息到数据库
+        保存对话消息到数据库（只保存传入的增量消息）
         :param messages: 消息列表，每个消息是一个字典
         :param session_id: 会话ID，用于区分不同的对话会话
         """
+        if not messages:
+            return
+        
+        # 保存消息（现在直接保存所有传入的消息，假设它们是增量消息）
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
