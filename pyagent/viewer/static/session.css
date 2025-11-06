@@ -466,7 +466,7 @@ body {
 }
 
 .assistant-tool-name::before {
-    content: "⚙️";
+    content: "";
 }
 
 .assistant-tool-toggle {
