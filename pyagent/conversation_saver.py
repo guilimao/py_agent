@@ -43,47 +43,104 @@ class ConversationDatabase:
     
     def save_conversation(self, messages, session_id="default"):
         """
-        保存对话消息到数据库（只保存传入的增量消息）
+        保存对话消息到数据库（只保存增量消息）
         :param messages: 消息列表，每个消息是一个字典
         :param session_id: 会话ID，用于区分不同的对话会话
         """
         if not messages:
             return
         
-        # 保存消息（现在直接保存所有传入的消息，假设它们是增量消息）
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        # 处理消息，根据system角色分割对话
+        current_session_id = session_id
+        current_messages = []
+        sessions_to_save = {}  # session_id -> messages列表
+        
         for msg in messages:
-            # 处理content字段（支持字符串和列表格式）
-            content = msg.get("content")
-            if isinstance(content, list):
-                # 将content列表序列化为JSON字符串存储
-                content_str = json.dumps(content, ensure_ascii=False)
+            if msg.get("role") == "system":
+                # 遇到system消息，开始新的会话
+                if current_messages:
+                    # 保存当前会话的消息
+                    sessions_to_save[current_session_id] = current_messages
+                
+                # 生成新的session_id
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                current_session_id = f"{session_id}_{timestamp}"
+                current_messages = [msg]
             else:
-                content_str = content
-            
-            conv = {
-                "role": msg["role"],
-                "thinking": msg.get("thinking"),
-                "content": content_str,
-                "tool_calls": json.dumps(msg.get("tool_calls")) if msg.get("tool_calls") else None,
-                "tool_call_id": msg.get("tool_call_id"),
-                "session_id": session_id
-            }
-            
+                # 普通消息，添加到当前会话
+                current_messages.append(msg)
+        
+        # 保存最后一个会话
+        if current_messages:
+            sessions_to_save[current_session_id] = current_messages
+        
+        # 为每个会话筛选新消息并保存
+        for sess_id, sess_messages in sessions_to_save.items():
+            # 获取数据库中该会话的最后一条消息的时间戳
             cursor.execute('''
-                INSERT INTO conversations 
-                (session_id, role, thinking, content, tool_calls, tool_call_id)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (
-                conv["session_id"],
-                conv["role"],
-                conv["thinking"],
-                conv["content"],
-                conv["tool_calls"],
-                conv["tool_call_id"]
-            ))
+                SELECT MAX(timestamp) FROM conversations 
+                WHERE session_id = ?
+            ''', (sess_id,))
+            
+            result = cursor.fetchone()
+            last_timestamp = result[0] if result and result[0] else None
+            
+            # 筛选出新消息
+            new_messages = []
+            for msg in sess_messages:
+                msg_timestamp = msg.get("timestamp")
+                if msg_timestamp is None:
+                    new_messages.append(msg)
+                elif last_timestamp is None:
+                    new_messages.append(msg)
+                else:
+                    try:
+                        msg_time = datetime.fromisoformat(msg_timestamp.replace('Z', '+00:00'))
+                        db_time = datetime.fromisoformat(last_timestamp.replace('Z', '+00:00'))
+                        if msg_time > db_time:
+                            new_messages.append(msg)
+                    except (ValueError, TypeError):
+                        new_messages.append(msg)
+            
+            # 保存新消息
+            for msg in new_messages:
+                content = msg.get("content")
+                if isinstance(content, list):
+                    content_str = json.dumps(content, ensure_ascii=False)
+                else:
+                    content_str = content
+                
+                # 获取消息的timestamp，如果没有则使用当前UTC时间
+                msg_timestamp = msg.get("timestamp")
+                if not msg_timestamp:
+                    msg_timestamp = datetime.utcnow().isoformat() + 'Z'
+                
+                conv = {
+                    "role": msg["role"],
+                    "thinking": msg.get("thinking"),
+                    "content": content_str,
+                    "tool_calls": json.dumps(msg.get("tool_calls")) if msg.get("tool_calls") else None,
+                    "tool_call_id": msg.get("tool_call_id"),
+                    "session_id": sess_id,
+                    "timestamp": msg_timestamp
+                }
+                
+                cursor.execute('''
+                    INSERT INTO conversations 
+                    (session_id, role, thinking, content, tool_calls, tool_call_id, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    conv["session_id"],
+                    conv["role"],
+                    conv["thinking"],
+                    conv["content"],
+                    conv["tool_calls"],
+                    conv["tool_call_id"],
+                    conv["timestamp"]
+                ))
         
         conn.commit()
         conn.close()

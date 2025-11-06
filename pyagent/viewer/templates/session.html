@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>对话记录 - {{ current_session }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='session.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>对话记录</h1>
+            </div>
+            
+            <div class="session-list">
+                {% for session in sessions %}
+                <a href="/session/{{ session.session_id }}" class="session-item {% if session.session_id == current_session %}active{% endif %}">
+                    <div class="session-title">{{ session.title }}</div>
+                    <div class="session-info">
+                        <div>消息: {{ session.message_count }}</div>
+                        <div>{{ session.first_message_time[:19] }}</div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="main-content">
+            {% if not db_exists %}
+            <div class="db-not-exist">
+                <h2>数据库不存在</h2>
+                <p>无法找到对话记录数据库文件</p>
+                <button class="import-button" onclick="document.getElementById('dbFile').click()">
+                    导入数据库
+                </button>
+                <input type="file" id="dbFile" class="file-input" accept=".db" onchange="importDatabase()">
+                
+                <div class="loading" id="loading">
+                    正在导入数据库...
+                </div>
+                
+                <div class="error-message" id="errorMessage"></div>
+                
+                <div class="success-message" id="successMessage"></div>
+            </div>
+            {% else %}
+            <div class="main-header">
+                <h2>会话: {{ current_session }}</h2>
+            </div>
+            
+            {% if conversations %}
+            <div class="conversation-list">
+                {% for msg in conversations %}
+                <div class="message">
+                    <div class="message-header">
+                        <span class="message-role {{ msg.role }}">{{ msg.role.upper() }}</span>
+                        <span class="message-time">{{ msg.timestamp }}</span>
+                    </div>
+                    
+                    {% if msg.thinking %}
+                    <div class="thinking">
+                        <div class="thinking-label">思考过程:</div>
+                        <div>{{ msg.thinking }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="message-content">
+                        {% if msg.role != 'tool' %}
+                            {% if msg.content is string %}
+                                <div class="content-text">{{ msg.content }}</div>
+                            {% elif msg.content is iterable %}
+                                <div class="content-list">
+                                    {% for item in msg.content %}
+                                        <div class="content-item">
+                                            {% if item.type %}
+                                                <div class="content-type">类型: {{ item.type }}</div>
+                                            {% endif %}
+                                            {% if item.text %}
+                                                <div>{{ item.text }}</div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="content-text">{{ msg.content }}</div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    
+                    {% if msg.role == 'assistant' and msg.tool_calls %}
+                    <div class="tool-calls">
+                        {% for tool_call in msg.tool_calls %}
+                        <div class="assistant-tool-call">
+                            <div class="assistant-tool-header" onclick="toggleAssistantTool(this)">
+                                <span class="assistant-tool-name">⚙️ {{ tool_call.function.name }}</span>
+                                <span class="assistant-tool-toggle">展开参数 ▼</span>
+                            </div>
+                            <div class="assistant-tool-args">
+                                <div class="tool-args">{{ tool_call.function.arguments }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if msg.role == 'tool' %}
+                    <div class="tool-result-section">
+                        <div class="tool-result-collapsible" onclick="toggleToolResult(this)">
+                            <span>🔧 工具执行结果</span>
+                            <span class="collapsible-icon expanded">▶</span>
+                        </div>
+                        <div class="tool-result-content">
+                            {% if msg.content is string %}
+                                {{ msg.content }}
+                            {% elif msg.content is iterable %}
+                                {% for item in msg.content %}
+                                    {% if item.text %}
+                                        {{ item.text }}
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                {{ msg.content }}
+                            {% endif %}
+                            {% if msg.tool_call_id %}
+                            <div class="tool-call-id" style="margin-top: 10px;">
+                                工具调用ID: {{ msg.tool_call_id }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <h2>暂无对话记录</h2>
+                <p>该会话中还没有任何消息</p>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='session.js') }}"></script>
+</body>
+</html>

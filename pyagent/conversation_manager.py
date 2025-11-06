@@ -4,6 +4,7 @@
 from typing import List, Dict, Any, Optional, Iterator
 from dataclasses import dataclass
 from enum import Enum
+from datetime import datetime
 
 
 class MessageRole(Enum):
@@ -23,6 +24,7 @@ class Message:
     tool_calls: Optional[List[Dict[str, Any]]] = None
     tool_call_id: Optional[str] = None
     thinking: Optional[str] = None
+    timestamp: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式，适配不同SDK"""
@@ -38,6 +40,9 @@ class Message:
         
         if self.tool_call_id:
             result["tool_call_id"] = self.tool_call_id
+        
+        if self.timestamp:
+            result["timestamp"] = self.timestamp
             
         return result
 
@@ -60,14 +65,14 @@ class ConversationManager:
     
     def _add_system_message(self, content: str):
         """添加系统消息"""
-        self.messages.append(Message(role=MessageRole.SYSTEM, content=content))
+        self.messages.append(Message(role=MessageRole.SYSTEM, content=content, timestamp=datetime.now().isoformat()))
     
     def add_user_message(self, content: str, content_parts: Optional[List[Dict[str, Any]]] = None):
         """添加用户消息"""
         if content_parts:
-            self.messages.append(Message(role=MessageRole.USER, content_parts=content_parts))
+            self.messages.append(Message(role=MessageRole.USER, content_parts=content_parts, timestamp=datetime.now().isoformat()))
         else:
-            self.messages.append(Message(role=MessageRole.USER, content=content))
+            self.messages.append(Message(role=MessageRole.USER, content=content, timestamp=datetime.now().isoformat()))
     
     def add_assistant_message(self, content: str, thinking: Optional[str] = None, 
                             tool_calls: Optional[List[Dict[str, Any]]] = None):
@@ -76,7 +81,8 @@ class ConversationManager:
             role=MessageRole.ASSISTANT,
             content=content,
             thinking=thinking,
-            tool_calls=tool_calls
+            tool_calls=tool_calls,
+            timestamp=datetime.now().isoformat()
         ))
     
     def add_tool_result(self, tool_call_id: str, content: str):

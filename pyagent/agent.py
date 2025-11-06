@@ -30,10 +30,7 @@ class Agent:
         from .tools import TOOLS
         self.token_counter.set_initial_tokens(system_prompt, TOOLS)
         
-        # 保存系统消息到数据库（确保系统提示被存储）
-        system_message = self.conversation_manager.get_system_message()
-        if system_message:
-            conversation_saver.save_conversation([system_message])
+        # 系统提示将在有实际用户输入后再保存，避免保存空对话
 
     def run(self):
         try:
@@ -55,6 +52,13 @@ class Agent:
                 
                 # 添加用户输入到对话上下文
                 self.conversation_manager.add_user_message(clean_text, content_parts)
+                
+                # 如果是第一条用户消息，先保存系统提示再保存用户消息
+                if len(self.conversation_manager.get_messages_for_sdk()) == 2:  # system + user
+                    system_message = self.conversation_manager.get_system_message()
+                    if system_message:
+                        conversation_saver.save_conversation([system_message])
+                
                 conversation_saver.save_conversation([self.conversation_manager.get_last_message()])
 
                 # 计算输入token总数
