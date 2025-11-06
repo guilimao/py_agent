@@ -7,6 +7,7 @@ from .context_compressor import ContextCompressor
 from .llm_adapter import UnifiedLLMClient
 from .conversation_manager import ConversationManager, StreamResponseHandler
 import json_repair
+from datetime import datetime
 
 
 class Agent:
@@ -31,6 +32,10 @@ class Agent:
         self.token_counter.set_initial_tokens(system_prompt, TOOLS)
         
         # 系统提示将在有实际用户输入后再保存，避免保存空对话
+        
+        # 创建当前会话的session_id
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.session_id = f"conversation_{timestamp}"
 
     def run(self):
         try:
@@ -57,9 +62,9 @@ class Agent:
                 if len(self.conversation_manager.get_messages_for_sdk()) == 2:  # system + user
                     system_message = self.conversation_manager.get_system_message()
                     if system_message:
-                        conversation_saver.save_conversation([system_message])
+                        conversation_saver.save_conversation([system_message], self.session_id)
                 
-                conversation_saver.save_conversation([self.conversation_manager.get_last_message()])
+                conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
 
                 # 计算输入token总数
                 user_tokens = self.token_counter.count_tokens(clean_text)
@@ -119,7 +124,7 @@ class Agent:
                 result["thinking"],
                 result["tool_calls"]
             )
-            conversation_saver.save_conversation([self.conversation_manager.get_last_message()])
+            conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
             
             # 处理工具调用
             if result["has_tool_calls"]:
@@ -198,7 +203,7 @@ class Agent:
                     
                     # 添加工具返回结果到对话上下文
                     self.conversation_manager.add_tool_result(tool_call_id, str(function_response))
-                    conversation_saver.save_conversation([self.conversation_manager.get_last_message()])
+                    conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
                     
                     # 计算工具返回结果的token
                     tool_result_tokens = self.token_counter.count_tokens(str(function_response))

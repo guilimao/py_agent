@@ -90,7 +90,8 @@ class ConversationManager:
         self.messages.append(Message(
             role=MessageRole.TOOL,
             content=content,
-            tool_call_id=tool_call_id
+            tool_call_id=tool_call_id,
+            timestamp=datetime.now().isoformat()
         ))
     
     def get_messages_for_sdk(self) -> List[Dict[str, Any]]:

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>对话记录 - {{ current_session }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='session_new.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='session.css') }}">
 </head>
 <body>
     <div class="container">
@@ -55,7 +55,10 @@
                 <div class="message">
                     <div class="message-header">
                         <span class="message-role {{ msg.role }}">{{ msg.role.upper() }}</span>
-                        <span class="message-time">{{ msg.timestamp }}</span>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <span class="message-session-id">{{ current_session }}</span>
+                            <span class="message-time">{{ msg.timestamp }}</span>
+                        </div>
                     </div>
                     
                     {% if msg.thinking %}
@@ -65,28 +68,28 @@
                     </div>
                     {% endif %}
                     
+                    {% if msg.role != 'tool' %}
                     <div class="message-content">
-                        {% if msg.role != 'tool' %}
-                            {% if msg.content is string %}
-                                <div class="content-text">{{ msg.content }}</div>
-                            {% elif msg.content is iterable %}
-                                <div class="content-list">
-                                    {% for item in msg.content %}
-                                        <div class="content-item">
-                                            {% if item.type %}
-                                                <div class="content-type">类型: {{ item.type }}</div>
-                                            {% endif %}
-                                            {% if item.text %}
-                                                <div>{{ item.text }}</div>
-                                            {% endif %}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                <div class="content-text">{{ msg.content }}</div>
-                            {% endif %}
+                        {% if msg.content is string %}
+                            <div class="content-text">{{ msg.content }}</div>
+                        {% elif msg.content is iterable and msg.content is not mapping %}
+                            <div class="content-list">
+                                {% for item in msg.content %}
+                                    <div class="content-item">
+                                        {% if item.type %}
+                                            <div class="content-type">类型: {{ item.type }}</div>
+                                        {% endif %}
+                                        {% if item.text %}
+                                            <div>{{ item.text }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="content-text">{{ msg.content }}</div>
                         {% endif %}
                     </div>
+                    {% endif %}
                     
                     {% if msg.role == 'assistant' and msg.tool_calls %}
                     <div class="tool-calls">
@@ -108,7 +111,7 @@
                     <div class="tool-result-section">
                         <div class="tool-result-collapsible" onclick="toggleToolResult(this)">
                             <span>🔧 工具执行结果</span>
-                            <span class="collapsible-icon expanded">▶</span>
+                            <span class="collapsible-icon">▶</span>
                         </div>
                         <div class="tool-result-content">
                             {% if msg.content is string %}

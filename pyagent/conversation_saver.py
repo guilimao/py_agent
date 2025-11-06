@@ -53,70 +53,46 @@ class ConversationDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 处理消息，根据system角色分割对话
-        current_session_id = session_id
-        current_messages = []
-        sessions_to_save = {}  # session_id -> messages列表
+        # 获取数据库中该会话的最后一条消息的时间戳
+        cursor.execute('''
+            SELECT MAX(timestamp) FROM conversations 
+            WHERE session_id = ?
+        ''', (session_id,))
         
+        result = cursor.fetchone()
+        last_timestamp = result[0] if result and result[0] else None
+        
+        # 筛选出新消息
+        new_messages = []
         for msg in messages:
-            if msg.get("role") == "system":
-                # 遇到system消息，开始新的会话
-                if current_messages:
-                    # 保存当前会话的消息
-                    sessions_to_save[current_session_id] = current_messages
-                
-                # 生成新的session_id
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                current_session_id = f"{session_id}_{timestamp}"
-                current_messages = [msg]
+            # 检查消息必须有timestamp
+            if msg.get("timestamp") is None:
+                raise ValueError(f"消息缺少timestamp字段: {msg}")
+            
+            msg_timestamp = msg["timestamp"]
+            if last_timestamp is None:
+                new_messages.append(msg)
             else:
-                # 普通消息，添加到当前会话
-                current_messages.append(msg)
-        
-        # 保存最后一个会话
-        if current_messages:
-            sessions_to_save[current_session_id] = current_messages
-        
-        # 为每个会话筛选新消息并保存
-        for sess_id, sess_messages in sessions_to_save.items():
-            # 获取数据库中该会话的最后一条消息的时间戳
-            cursor.execute('''
-                SELECT MAX(timestamp) FROM conversations 
-                WHERE session_id = ?
-            ''', (sess_id,))
-            
-            result = cursor.fetchone()
-            last_timestamp = result[0] if result and result[0] else None
-            
-            # 筛选出新消息
-            new_messages = []
-            for msg in sess_messages:
-                msg_timestamp = msg.get("timestamp")
-                if msg_timestamp is None:
-                    new_messages.append(msg)
-                elif last_timestamp is None:
-                    new_messages.append(msg)
-                else:
-                    try:
-                        msg_time = datetime.fromisoformat(msg_timestamp.replace('Z', '+00:00'))
-                        db_time = datetime.fromisoformat(last_timestamp.replace('Z', '+00:00'))
-                        if msg_time > db_time:
-                            new_messages.append(msg)
-                    except (ValueError, TypeError):
+                try:
+                    msg_time = datetime.fromisoformat(msg_timestamp.replace('Z', '+00:00'))
+                    db_time = datetime.fromisoformat(last_timestamp.replace('Z', '+00:00'))
+                    if msg_time > db_time:
                         new_messages.append(msg)
-            
-            # 保存新消息
-            for msg in new_messages:
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"消息timestamp格式错误: {msg_timestamp} - {str(e)}")
+        
+        # 保存新消息
+        for msg in new_messages:
                 content = msg.get("content")
                 if isinstance(content, list):
                     content_str = json.dumps(content, ensure_ascii=False)
                 else:
                     content_str = content
                 
-                # 获取消息的timestamp，如果没有则使用当前UTC时间
+                # 获取消息的timestamp，必须存在
                 msg_timestamp = msg.get("timestamp")
                 if not msg_timestamp:
-                    msg_timestamp = datetime.utcnow().isoformat() + 'Z'
+                    raise ValueError(f"消息缺少timestamp字段: {msg}")
                 
                 conv = {
                     "role": msg["role"],
@@ -124,7 +100,7 @@ class ConversationDatabase:
                     "content": content_str,
                     "tool_calls": json.dumps(msg.get("tool_calls")) if msg.get("tool_calls") else None,
                     "tool_call_id": msg.get("tool_call_id"),
-                    "session_id": sess_id,
+                    "session_id": session_id,
                     "timestamp": msg_timestamp
                 }
                 

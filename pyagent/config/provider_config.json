@@ -149,14 +149,14 @@
                 "name": "kimi-k2-thinking",
                 "parameters": [
                     ["max_tokens",200000],
-                    ["temperature",0.6]
+                    ["temperature",1.0]
                 ]
             },
             {
                 "name": "kimi-k2-thinking-turbo",
                 "parameters": [
                     ["max_tokens",200000],
-                    ["temperature",0.6]
+                    ["temperature",1.0]
                 ]
             }
         ]
