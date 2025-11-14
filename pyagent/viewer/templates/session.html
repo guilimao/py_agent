@@ -87,6 +87,23 @@
                                         {% if item.text %}
                                             <div>{{ item.text }}</div>
                                         {% endif %}
+                                        {% if item.type == 'image_url' and item.image_url %}
+                                            <div class="content-image">
+                                                {% if item.image_url.url %}
+                                                    {% if 'base64' in item.image_url.url %}
+                                                        <img src="{{ item.image_url.url }}" alt="Base64图片" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                                    {% else %}
+                                                        <img src="{{ item.image_url.url }}" alt="图片" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                                    {% endif %}
+                                                {% elif item.image_url is string %}
+                                                    {% if 'base64' in item.image_url %}
+                                                        <img src="{{ item.image_url }}" alt="Base64图片" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                                    {% else %}
+                                                        <img src="{{ item.image_url }}" alt="图片" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                                    {% endif %}
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
                                     </div>
                                 {% endfor %}
                             </div>

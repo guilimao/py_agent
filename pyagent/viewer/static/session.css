@@ -950,3 +950,29 @@ body {
 .tool-result-content a:hover {
     border-bottom: 1px solid var(--primary-color);
 }
+
+/* 图片样式 */
+.content-image {
+    margin-top: 12px;
+}
+
+.content-image img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.content-image img:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.content-image-error {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: 4px;
+}

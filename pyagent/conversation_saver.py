@@ -16,14 +16,14 @@ class ConversationDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 创建对话表
+        # 创建对话表 - content字段使用TEXT类型存储JSON字符串（包含base64编码的图片）
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS conversations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT,
                 role TEXT NOT NULL,
                 thinking TEXT,
-                content TEXT,
+                content TEXT,  -- 存储文本或JSON字符串（包含base64图片编码）
                 tool_calls TEXT,
                 tool_call_id TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -83,40 +83,41 @@ class ConversationDatabase:
         
         # 保存新消息
         for msg in new_messages:
-                content = msg.get("content")
-                if isinstance(content, list):
-                    content_str = json.dumps(content, ensure_ascii=False)
-                else:
-                    content_str = content
-                
-                # 获取消息的timestamp，必须存在
-                msg_timestamp = msg.get("timestamp")
-                if not msg_timestamp:
-                    raise ValueError(f"消息缺少timestamp字段: {msg}")
-                
-                conv = {
-                    "role": msg["role"],
-                    "thinking": msg.get("thinking"),
-                    "content": content_str,
-                    "tool_calls": json.dumps(msg.get("tool_calls")) if msg.get("tool_calls") else None,
-                    "tool_call_id": msg.get("tool_call_id"),
-                    "session_id": session_id,
-                    "timestamp": msg_timestamp
-                }
-                
-                cursor.execute('''
-                    INSERT INTO conversations 
-                    (session_id, role, thinking, content, tool_calls, tool_call_id, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    conv["session_id"],
-                    conv["role"],
-                    conv["thinking"],
-                    conv["content"],
-                    conv["tool_calls"],
-                    conv["tool_call_id"],
-                    conv["timestamp"]
-                ))
+            content = msg.get("content")
+            if isinstance(content, list):
+                # 如果content是列表（包含图片base64编码），序列化为JSON字符串
+                content_str = json.dumps(content, ensure_ascii=False)
+            else:
+                content_str = content
+            
+            # 获取消息的timestamp，必须存在
+            msg_timestamp = msg.get("timestamp")
+            if not msg_timestamp:
+                raise ValueError(f"消息缺少timestamp字段: {msg}")
+            
+            conv = {
+                "role": msg["role"],
+                "thinking": msg.get("thinking"),
+                "content": content_str,
+                "tool_calls": json.dumps(msg.get("tool_calls")) if msg.get("tool_calls") else None,
+                "tool_call_id": msg.get("tool_call_id"),
+                "session_id": session_id,
+                "timestamp": msg_timestamp
+            }
+            
+            cursor.execute('''
+                INSERT INTO conversations 
+                (session_id, role, thinking, content, tool_calls, tool_call_id, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                conv["session_id"],
+                conv["role"],
+                conv["thinking"],
+                conv["content"],
+                conv["tool_calls"],
+                conv["tool_call_id"],
+                conv["timestamp"]
+            ))
         
         conn.commit()
         conn.close()
