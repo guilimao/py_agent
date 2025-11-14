@@ -143,14 +143,16 @@ body {
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
-    opacity: 1;
+    opacity: 0;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
     z-index: 10;
+    pointer-events: none;
 }
 
-.session-item:hover .session-delete {
+.session-item-container:hover .session-delete {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .session-delete:hover {
@@ -283,11 +285,11 @@ body {
     transform: none;
 }
 
-.session-item.active .session-delete {
+.session-item-container:hover .session-item.active .session-delete {
     background: linear-gradient(135deg, #ef4444, #dc2626);
 }
 
-.session-item.active .session-delete:hover {
+.session-item-container:hover .session-item.active .session-delete:hover {
     background: linear-gradient(135deg, #dc2626, #b91c1c);
 }
 

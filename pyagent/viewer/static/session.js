@@ -85,6 +85,33 @@ function showDeleteModal(sessionId, event) {
     // 存储要删除的会话ID
     confirmBtn.setAttribute('data-session-id', sessionId);
     
+    // 查找待删除会话的前后会话ID
+    let previousSessionId = null;
+    let nextSessionId = null;
+    let found = false;
+    
+    const sessionElements = document.querySelectorAll('.session-item');
+    for (let i = 0; i < sessionElements.length; i++) {
+        const href = sessionElements[i].getAttribute('href');
+        const id = href.split('/')[2];
+        
+        if (id === sessionId) {
+            found = true;
+            if (i > 0) {
+                const prevHref = sessionElements[i - 1].getAttribute('href');
+                previousSessionId = prevHref.split('/')[2];
+            }
+        } else if (found && !nextSessionId) {
+            const nextHref = sessionElements[i].getAttribute('href');
+            nextSessionId = nextHref.split('/')[2];
+            break;
+        }
+    }
+    
+    // 确定删除后要跳转的目标会话（优先前一个，其次后一个）
+    const redirectSessionId = previousSessionId || nextSessionId || null;
+    confirmBtn.setAttribute('data-redirect-session', redirectSessionId);
+    
     // 只显示会话ID，避免特殊字符导致的语法错误
     sessionInfo.textContent = `会话ID: ${sessionId}`;
     
@@ -122,6 +149,7 @@ function hideDeleteModal() {
     
     modal.style.display = 'none';
     confirmBtn.removeAttribute('data-session-id');
+    confirmBtn.removeAttribute('data-redirect-session');
     confirmBtn.disabled = false;
     confirmBtn.textContent = '删除';
     
@@ -142,6 +170,7 @@ function hideDeleteModal() {
 function deleteSession() {
     const confirmBtn = document.getElementById('confirmDelete');
     const sessionId = confirmBtn.getAttribute('data-session-id');
+    const redirectSessionId = confirmBtn.getAttribute('data-redirect-session');
     
     if (!sessionId) {
         showError('未选择要删除的会话');
@@ -167,11 +196,16 @@ function deleteSession() {
             
             // 延迟一下再跳转，确保DOM更新完成
             setTimeout(() => {
-                // 立即刷新或跳转
                 const currentSession = window.location.pathname.split('/')[2];
                 if (currentSession === sessionId) {
-                    // 如果被删除的是当前会话，跳转到首页
-                    window.location.href = '/';
+                    // 如果被删除的是当前会话
+                    if (redirectSessionId) {
+                        // 跳转到前后会话（优先前一个）
+                        window.location.href = `/session/${redirectSessionId}`;
+                    } else {
+                        // 如果没有前后会话，跳转到首页
+                        window.location.href = '/';
+                    }
                 } else {
                     // 否则只刷新页面
                     window.location.reload();
