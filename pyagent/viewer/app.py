@@ -199,6 +199,32 @@ def api_session(session_id):
     conversations = get_conversations(session_id)
     return jsonify(conversations)
 
+@app.route('/api/session/<session_id>/delete', methods=['POST'])
+def delete_session(session_id):
+    """API - 删除指定会话"""
+    if not check_db_exists():
+        return jsonify({'error': '数据库不存在'}), 404
+
+    try:
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # 删除指定会话的所有消息
+        cursor.execute('DELETE FROM conversations WHERE session_id = ?', (session_id,))
+        rows_deleted = cursor.rowcount
+        
+        conn.commit()
+        conn.close()
+        
+        if rows_deleted > 0:
+            return jsonify({'success': True, 'message': f'成功删除 {rows_deleted} 条消息'})
+        else:
+            return jsonify({'error': '会话不存在或已被删除'}), 404
+            
+    except Exception as e:
+        return jsonify({'error': f'删除失败: {str(e)}'}), 500
+
 @app.route('/import-database', methods=['POST'])
 def import_database():
     """导入数据库文件"""

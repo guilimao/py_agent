@@ -73,38 +73,136 @@ function importDatabase() {
     });
 }
 
+// 显示删除确认模态框
+function showDeleteModal(sessionId, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const modal = document.getElementById('deleteModal');
+    const sessionInfo = document.getElementById('sessionToDelete');
+    const confirmBtn = document.getElementById('confirmDelete');
+    
+    // 存储要删除的会话ID
+    confirmBtn.setAttribute('data-session-id', sessionId);
+    
+    // 只显示会话ID，避免特殊字符导致的语法错误
+    sessionInfo.textContent = `会话ID: ${sessionId}`;
+    
+    // 显示模态框
+    modal.style.display = 'block';
+}
+
+// 隐藏删除确认模态框
+function hideDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    const confirmBtn = document.getElementById('confirmDelete');
+    
+    modal.style.display = 'none';
+    confirmBtn.removeAttribute('data-session-id');
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = '删除';
+}
+
+// 删除会话
+function deleteSession() {
+    const confirmBtn = document.getElementById('confirmDelete');
+    const sessionId = confirmBtn.getAttribute('data-session-id');
+    
+    if (!sessionId) {
+        showError('未选择要删除的会话');
+        return;
+    }
+    
+    // 禁用按钮并显示加载状态
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '删除中...';
+    
+    fetch(`/api/session/${sessionId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess(data.message);
+            // 先隐藏模态框，重置按钮状态，再跳转页面
+            hideDeleteModal();
+            
+            // 延迟一下再跳转，确保DOM更新完成
+            setTimeout(() => {
+                // 立即刷新或跳转
+                const currentSession = window.location.pathname.split('/')[2];
+                if (currentSession === sessionId) {
+                    // 如果被删除的是当前会话，跳转到首页
+                    window.location.href = '/';
+                } else {
+                    // 否则只刷新页面
+                    window.location.reload();
+                }
+            }, 100);
+        } else {
+            showError(data.error || '删除失败');
+            hideDeleteModal();
+        }
+    })
+    .catch(error => {
+        showError('删除失败: ' + error.message);
+        hideDeleteModal();
+    });
+}
+
 // 显示错误消息
 function showError(message) {
     const errorElement = document.getElementById('errorMessage');
-    errorElement.textContent = message;
-    errorElement.style.display = 'block';
-    
-    // 3秒后自动隐藏
-    setTimeout(() => {
-        errorElement.style.display = 'none';
-    }, 5000);
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+        
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            if (errorElement) {
+                errorElement.style.display = 'none';
+            }
+        }, 5000);
+    } else {
+        console.error('Error:', message);
+    }
 }
 
 // 显示成功消息
 function showSuccess(message) {
     const successElement = document.getElementById('successMessage');
-    successElement.textContent = message;
-    successElement.style.display = 'block';
-    
-    // 3秒后自动隐藏
-    setTimeout(() => {
-        successElement.style.display = 'none';
-    }, 5000);
+    if (successElement) {
+        successElement.textContent = message;
+        successElement.style.display = 'block';
+        
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            if (successElement) {
+                successElement.style.display = 'none';
+            }
+        }, 5000);
+    } else {
+        console.log('Success:', message);
+    }
 }
 
 // 显示加载状态
 function showLoading() {
-    document.getElementById('loading').style.display = 'flex';
+    const loadingElement = document.getElementById('loading');
+    if (loadingElement) {
+        loadingElement.style.display = 'flex';
+    }
 }
 
 // 隐藏加载状态
 function hideLoading() {
-    document.getElementById('loading').style.display = 'none';
+    const loadingElement = document.getElementById('loading');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
+    }
 }
 
 // 隐藏所有消息
@@ -188,17 +286,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 自动展开第一个工具调用（可选）
-    const firstToolCall = document.querySelector('.assistant-tool-call');
-    if (firstToolCall) {
-        const header = firstToolCall.querySelector('.assistant-tool-header');
-        if (header) {
-            // 延迟一点再展开，让用户看到动画
-            setTimeout(() => {
-                toggleAssistantTool(header);
-            }, 500);
+    // 默认折叠工具结果
+    const allToolResults = document.querySelectorAll('.tool-result-section');
+    allToolResults.forEach(section => {
+        const content = section.querySelector('.tool-result-content');
+        const icon = section.querySelector('.collapsible-icon');
+        if (content && content.classList.contains('active')) {
+            content.classList.remove('active');
         }
-    }
+        if (icon && icon.classList.contains('expanded')) {
+            icon.classList.remove('expanded');
+        }
+    });
     
     // 添加点击外部关闭展开内容的功能
     document.addEventListener('click', function(e) {

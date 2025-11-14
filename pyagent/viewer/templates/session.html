@@ -15,13 +15,18 @@
             
             <div class="session-list">
                 {% for session in sessions %}
-                <a href="/session/{{ session.session_id }}" class="session-item {% if session.session_id == current_session %}active{% endif %}">
-                    <div class="session-title">{{ session.title }}</div>
-                    <div class="session-info">
-                        <div>消息: {{ session.message_count }}</div>
-                        <div>{{ session.first_message_time[:19] }}</div>
-                    </div>
-                </a>
+                <div class="session-item-container" style="position: relative;">
+                    <a href="/session/{{ session.session_id }}" class="session-item {% if session.session_id == current_session %}active{% endif %}">
+                        <div class="session-title">{{ session.title }}</div>
+                        <div class="session-info">
+                            <div>消息: {{ session.message_count }}</div>
+                            <div>{{ session.first_message_time[:19] }}</div>
+                        </div>
+                    </a>
+                    <button class="session-delete" onclick="showDeleteModal('{{ session.session_id }}', event)">
+                        删除
+                    </button>
+                </div>
                 {% endfor %}
             </div>
         </div>
@@ -125,11 +130,7 @@
                             {% else %}
                                 {{ msg.content }}
                             {% endif %}
-                            {% if msg.tool_call_id %}
-                            <div class="tool-call-id" style="margin-top: 10px;">
-                                工具调用ID: {{ msg.tool_call_id }}
-                            </div>
-                            {% endif %}
+
                         </div>
                     </div>
                     {% endif %}
@@ -143,6 +144,24 @@
             </div>
             {% endif %}
             {% endif %}
+        </div>
+    </div>
+    
+    <!-- 删除确认模态框 -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⚠️ 确认删除</h3>
+            </div>
+            <div class="modal-body">
+                <p>您确定要删除以下会话吗？</p>
+                <p id="sessionToDelete" style="font-weight: bold; color: var(--text-primary); margin: 12px 0; font-family: monospace; background: #f5f5f5; padding: 8px; border-radius: 4px;"></p>
+                <p style="color: #ef4444;">此操作不可恢复，将永久删除会话中的所有消息。</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideDeleteModal()">取消</button>
+                <button id="confirmDelete" class="btn btn-danger" onclick="deleteSession()">删除</button>
+            </div>
         </div>
     </div>
     

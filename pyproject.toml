@@ -8,11 +8,11 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "openai (>=1.102.0,<2.0.0)",
-    "prompt-toolkit (>=3.0.52,<4.0.0)",
-    "chardet (>=5.2.0,<6.0.0)",
-    "json-repair (>=0.50.0,<0.51.0)",
-    "tiktoken (>=0.11.0,<0.12.0)"
+    "openai (>=1.102.0)",
+    "prompt-toolkit (>=3.0.52)",
+    "chardet (>=5.2.0)",
+    "json-repair (>=0.50.0)",
+    "tiktoken (>=0.11.0)"
 ]
 
 
@@ -20,5 +20,5 @@ dependencies = [
 pyagent = "pyagent.main:main"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
