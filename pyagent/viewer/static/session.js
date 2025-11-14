@@ -90,6 +90,29 @@ function showDeleteModal(sessionId, event) {
     
     // 显示模态框
     modal.style.display = 'block';
+    
+    // 添加键盘事件监听
+    function handleKeyPress(e) {
+        if (e.key === 'Escape') {
+            hideDeleteModal();
+        } else if (e.key === 'Enter') {
+            deleteSession();
+        }
+    }
+    
+    // 将事件处理函数存储在modal上，以便移除
+    modal._keyHandler = handleKeyPress;
+    document.addEventListener('keydown', handleKeyPress);
+    
+    // 添加点击模态框背景关闭的功能
+    function handleClickOutside(e) {
+        if (e.target === modal) {
+            hideDeleteModal();
+        }
+    }
+    
+    modal._clickHandler = handleClickOutside;
+    modal.addEventListener('click', handleClickOutside);
 }
 
 // 隐藏删除确认模态框
@@ -101,6 +124,18 @@ function hideDeleteModal() {
     confirmBtn.removeAttribute('data-session-id');
     confirmBtn.disabled = false;
     confirmBtn.textContent = '删除';
+    
+    // 移除键盘事件监听
+    if (modal._keyHandler) {
+        document.removeEventListener('keydown', modal._keyHandler);
+        delete modal._keyHandler;
+    }
+    
+    // 移除点击外部关闭的事件监听
+    if (modal._clickHandler) {
+        modal.removeEventListener('click', modal._clickHandler);
+        delete modal._clickHandler;
+    }
 }
 
 // 删除会话
