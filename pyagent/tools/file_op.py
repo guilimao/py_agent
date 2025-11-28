@@ -167,7 +167,7 @@ def find(
                 matching_files.append(file_path)
         # 返回结果
         if not matching_files:
-            return f"在 {abs_path} 中未找到匹配的文件"
+            result = [f"在 {abs_path} 中未找到匹配的文件"]
         result = [f"在 {abs_path} 中找到 {len(matching_files)} 个匹配文件:"]
         for file_path in sorted(matching_files):
             result.append(f"  {file_path}")

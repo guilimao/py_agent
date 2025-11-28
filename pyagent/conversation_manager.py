@@ -35,6 +35,9 @@ class Message:
         elif self.content is not None:
             result["content"] = self.content
         
+        if self.thinking:
+            result["thinking"] = self.thinking
+        
         if self.tool_calls:
             result["tool_calls"] = self.tool_calls
         
