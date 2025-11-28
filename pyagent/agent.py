@@ -199,7 +199,22 @@ class Agent:
             
             if function_name in TOOL_FUNCTIONS:
                 try:
-                    function_response = TOOL_FUNCTIONS[function_name](**function_args)
+                    # 获取工具函数的实际参数签名
+                    import inspect
+                    tool_func = TOOL_FUNCTIONS[function_name]
+                    sig = inspect.signature(tool_func)
+                    valid_params = list(sig.parameters.keys())
+                    
+                    # 过滤参数，只保留工具函数接受的参数
+                    filtered_args = {k: v for k, v in function_args.items() if k in valid_params}
+                    
+                    # 如果有参数被过滤掉，显示警告信息
+                    ignored_params = set(function_args.keys()) - set(filtered_args.keys())
+                    if ignored_params:
+                        self.frontend.output('warning', 
+                            f"⚠️  工具 '{function_name}' 忽略了不支持的参数: {ignored_params}")
+                    
+                    function_response = tool_func(**filtered_args)
                     
                     # 添加工具返回结果到对话上下文
                     self.conversation_manager.add_tool_result(tool_call_id, str(function_response))

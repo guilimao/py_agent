@@ -517,13 +517,12 @@ body {
 }
 
 .thinking {
-    background: linear-gradient(135deg, #fef3c7, #fde68a);
-    border: 1px solid #f59e0b;
+    background: #e5e7eb;
+    border: 1px solid #d1d5db;
     border-radius: var(--radius-sm);
     padding: 16px;
     margin-bottom: 16px;
-    font-style: italic;
-    color: #92400e;
+    color: #374151;
     position: relative;
     overflow: hidden;
 }
