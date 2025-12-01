@@ -35,7 +35,14 @@ class Message:
         elif self.content is not None:
             result["content"] = self.content
         
-        if self.thinking:
+        # 助手消息总是包含thinking字段（即使为空）
+        if self.role == MessageRole.ASSISTANT:
+            if self.thinking is not None:
+                result["thinking"] = self.thinking
+            else:
+                result["thinking"] = ""
+        # 其他消息只在thinking不为None时包含thinking字段
+        elif self.thinking is not None:
             result["thinking"] = self.thinking
         
         if self.tool_calls:
@@ -80,6 +87,10 @@ class ConversationManager:
     def add_assistant_message(self, content: str, thinking: Optional[str] = None, 
                             tool_calls: Optional[List[Dict[str, Any]]] = None):
         """添加助手消息"""
+        # 确保thinking字段不为None，即使为空字符串
+        if thinking is None:
+            thinking = ""
+        
         self.messages.append(Message(
             role=MessageRole.ASSISTANT,
             content=content,
@@ -99,7 +110,14 @@ class ConversationManager:
     
     def get_messages_for_sdk(self) -> List[Dict[str, Any]]:
         """获取适配SDK的消息格式"""
-        return [msg.to_dict() for msg in self.messages]
+        messages = [msg.to_dict() for msg in self.messages]
+        
+        # 【可以注释掉的代码】将thinking字段替换为reasoning_content字段，用于某些API端点
+        for msg in messages:
+            if 'thinking' in msg:
+                msg['reasoning_content'] = msg.pop('thinking')
+        
+        return messages
     
     def get_last_message(self) -> Optional[Dict[str, Any]]:
         """获取最后一条消息（用于增量保存）"""
@@ -221,6 +239,11 @@ class StreamResponseHandler:
         # 更新工具ID、名称、参数
         if tool_id:
             self.tool_calls_cache[tool_index]['id'] = tool_id
+        elif function_name and not self.tool_calls_cache[tool_index]['id']:
+            # 如果tool_id为空但function_name不为空，且当前id为空，生成一个唯一ID
+            import uuid
+            self.tool_calls_cache[tool_index]['id'] = f'toolcall_{uuid.uuid4().hex[:8]}'
+            
         if function_name:
             self.tool_calls_cache[tool_index]['function']['name'] = function_name
         if function_args:
@@ -246,6 +269,12 @@ class StreamResponseHandler:
         if not self.tool_calls_cache:
             return None
         
+        # 按索引排序以确保正确的顺序
+        sorted_tool_calls = sorted(
+            self.tool_calls_cache.items(),
+            key=lambda item: item[0]  # 按索引排序
+        )
+        
         return [
             {
                 'id': tool_call['id'],
@@ -254,5 +283,5 @@ class StreamResponseHandler:
                     'name': tool_call['function']['name'],
                     'arguments': tool_call['function']['arguments']
                 }
-            } for tool_call in self.tool_calls_cache.values()
+            } for _, tool_call in sorted_tool_calls
         ]

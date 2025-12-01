@@ -59,11 +59,28 @@ class SDKFactory:
     def _create_anthropic_client(api_key: str, base_url: str, **kwargs) -> Any:
         """创建Anthropic客户端"""
         anthropic_module = importlib.import_module('anthropic')
-        return anthropic_module.Anthropic(
-            api_key=api_key,
-            base_url=base_url,
-            **kwargs
-        )
+        
+        # 检查是否为Minimax的Anthropic兼容API
+        # Minimax需要Bearer格式的Authorization头部
+        client_kwargs = {
+            'api_key': api_key,
+            'base_url': base_url
+        }
+        
+        # 对于Minimax，需要额外的Authorization头部
+        # 因为Anthropic SDK默认可能使用不同的认证方式
+        if 'minimaxi.com' in base_url or 'minimax' in base_url.lower():
+            # 添加自定义的Authorization头部
+            # 注意：这里我们同时传递api_key和自定义头部
+            # Anthropic SDK会使用api_key，但我们的自定义头部会覆盖默认的认证头部
+            client_kwargs['default_headers'] = {
+                'Authorization': f'Bearer {api_key}'
+            }
+        
+        # 合并额外的参数
+        client_kwargs.update(kwargs)
+        
+        return anthropic_module.Anthropic(**client_kwargs)
     
     @staticmethod
     def is_sdk_available(sdk_name: str) -> bool:

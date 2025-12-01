@@ -37,7 +37,9 @@
                 "name": "deepseek-reasoner",
                 "parameters": [
                     ["max_tokens",64000],
-                    ["tools","Delete"]
+                    ["extra_body", {
+                        "thinking": {"type": "enabled"}
+                    }]
                 ]
             }
         ]

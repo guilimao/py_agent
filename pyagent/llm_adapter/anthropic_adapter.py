@@ -158,6 +158,7 @@ class AnthropicAdapter(BaseLLMAdapter):
             统一的流式响应迭代器
         """
         current_tool_call = None
+        tool_call_index = 0  # 跟踪工具调用索引
         for chunk in response:
             unified_response = LLMStreamResponse()
             if hasattr(chunk, 'type'):
@@ -174,11 +175,13 @@ class AnthropicAdapter(BaseLLMAdapter):
                             current_tool_call = {
                                 'id': chunk.content_block.id,
                                 'type': 'function',
+                                'index': tool_call_index,  # 添加索引字段
                                 'function': {
                                     'name': chunk.content_block.name,
                                     'arguments': ''
                                 }
                             }
+                            tool_call_index += 1  # 递增索引
                             # 立即发送工具调用信息，确保ID被正确记录
                             unified_response.choices[0].delta.tool_calls = [current_tool_call]
                             yield unified_response
@@ -197,7 +200,8 @@ class AnthropicAdapter(BaseLLMAdapter):
                             unified_response.choices[0].delta.reasoning_content = chunk.delta.thinking
                 elif chunk.type == 'content_block_stop':
                     # 内容块结束，发送最终状态（如果之前未发送）
-                    if current_tool_call and current_tool_call['function']['arguments'] and not unified_response.choices[0].delta.tool_calls:
+                    if current_tool_call and not unified_response.choices[0].delta.tool_calls:
+                        # 即使参数为空也发送，确保工具调用ID被正确记录
                         unified_response.choices[0].delta.tool_calls = [current_tool_call]
                     current_tool_call = None
                 elif chunk.type == 'message_delta':
@@ -227,6 +231,7 @@ class AnthropicAdapter(BaseLLMAdapter):
             统一的流式事件迭代器
         """
         current_tool_call = None
+        tool_call_index = 0  # 跟踪工具调用索引
         for chunk in response:
             if hasattr(chunk, 'type'):
                 if chunk.type == 'message_start':
@@ -244,11 +249,13 @@ class AnthropicAdapter(BaseLLMAdapter):
                             current_tool_call = {
                                 'id': chunk.content_block.id,
                                 'type': 'function',
+                                'index': tool_call_index,  # 添加索引字段
                                 'function': {
                                     'name': chunk.content_block.name,
                                     'arguments': ''
                                 }
                             }
+                            tool_call_index += 1  # 递增索引
                             yield StreamEvent(
                                 event_type='tool_call',
                                 data=current_tool_call
@@ -272,7 +279,8 @@ class AnthropicAdapter(BaseLLMAdapter):
                                 # 不立即发送事件，等待接收完成
                 elif chunk.type == 'content_block_stop':
                     # 内容块结束，发送最终工具调用状态
-                    if current_tool_call and current_tool_call['function']['arguments']:
+                    if current_tool_call:
+                        # 即使参数为空也发送事件，确保工具调用ID被记录
                         yield StreamEvent(
                             event_type='tool_call',
                             data=current_tool_call
