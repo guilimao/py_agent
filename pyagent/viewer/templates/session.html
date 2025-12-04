@@ -69,7 +69,7 @@
                     {% if msg.thinking %}
                     <div class="thinking">
                         <div class="thinking-label">思考过程:</div>
-                        <div>{{ msg.thinking }}</div>
+                        <div class="thinking-content">{{ msg.thinking }}</div>
                     </div>
                     {% endif %}
                     
@@ -85,7 +85,7 @@
                                             <div class="content-type">类型: {{ item.type }}</div>
                                         {% endif %}
                                         {% if item.text %}
-                                            <div>{{ item.text }}</div>
+                                            <div class="content-item-text">{{ item.text }}</div>
                                         {% endif %}
                                         {% if item.type == 'image_url' and item.image_url %}
                                             <div class="content-image">

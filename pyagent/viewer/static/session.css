@@ -84,7 +84,7 @@ body {
 }
 
 .back-link::before {
-    content: "←";
+    content: "‚Üê";
     font-size: 16px;
 }
 
@@ -220,7 +220,7 @@ body {
 }
 
 .modal-header h3::before {
-    content: "⚠️";
+    content: "‚ö†Ô∏è";
 }
 
 .modal-body {
@@ -516,6 +516,15 @@ body {
     letter-spacing: 0.5px;
 }
 
+.content-item-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
 .thinking {
     background: #e5e7eb;
     border: 1px solid #d1d5db;
@@ -528,7 +537,7 @@ body {
 }
 
 .thinking::before {
-    content: "💭";
+    content: "üí≠";
     position: absolute;
     top: 8px;
     right: 12px;
@@ -544,8 +553,17 @@ body {
     gap: 8px;
 }
 
+.thinking-content {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #374151;
+}
+
 .thinking-label::before {
-    content: "🤔";
+    content: "ü§î";
 }
 
 .tool-calls {
@@ -581,7 +599,7 @@ body {
 }
 
 .tool-name::before {
-    content: "⚙️";
+    content: "‚öôÔ∏è";
 }
 
 .tool-args {
@@ -611,7 +629,7 @@ body {
 }
 
 .tool-call-id::before {
-    content: "🔧";
+    content: "üîß";
 }
 
 .assistant-tool-call {
@@ -886,7 +904,7 @@ body {
     animation: fadeIn 0.3s ease-out;
 }
 
-/* 响应式设计 */
+/* ÂìçÂ∫îÂºèËÆæËÆ° */
 @media (max-width: 768px) {
     .container {
         flex-direction: column;
@@ -903,7 +921,7 @@ body {
     }
 }
 
-/* 滚动条美化 */
+/* ÊªöÂä®Êù°ÁæéÂåñ */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -923,7 +941,7 @@ body {
     background: #94a3b8;
 }
 
-/* 代码块样式 */
+/* ‰ª£Á†ÅÂùóÊ†∑Âºè */
 .content-text code,
 .tool-args code,
 .tool-result-content code {
@@ -936,7 +954,7 @@ body {
     border: 1px solid var(--border-color);
 }
 
-/* 链接样式 */
+/* ÈìæÊé•Ê†∑Âºè */
 .content-text a,
 .tool-args a,
 .tool-result-content a {
@@ -952,7 +970,7 @@ body {
     border-bottom: 1px solid var(--primary-color);
 }
 
-/* 图片样式 */
+/* ÂõæÁâáÊ†∑Âºè */
 .content-image {
     margin-top: 12px;
 }
