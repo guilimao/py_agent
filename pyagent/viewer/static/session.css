@@ -83,10 +83,6 @@ body {
     gap: 8px;
 }
 
-.back-link::before {
-    content: "‚Üê";
-    font-size: 16px;
-}
 
 .session-list {
     flex: 1;
@@ -117,17 +113,6 @@ body {
     background: linear-gradient(135deg, #e0e7ff, #ede9fe);
     border: 1px solid #c7d2fe;
     position: relative;
-}
-
-.session-item.active::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: linear-gradient(to bottom, var(--primary-color), var(--secondary-color));
-    border-radius: 4px 0 0 4px;
 }
 
 .session-delete {
@@ -217,10 +202,6 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.modal-header h3::before {
-    content: "‚ö†Ô∏è";
 }
 
 .modal-body {
@@ -414,48 +395,28 @@ body {
     gap: 6px;
 }
 
-.message-role::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-}
 
 .message-role.user {
     color: #dc2626;
     background-color: #fee2e2;
 }
 
-.message-role.user::before {
-    background-color: #dc2626;
-}
 
 .message-role.assistant {
     color: var(--primary-color);
     background-color: #e0e7ff;
 }
 
-.message-role.assistant::before {
-    background-color: var(--primary-color);
-}
 
 .message-role.system {
     color: var(--text-muted);
     background-color: #f1f5f9;
 }
 
-.message-role.system::before {
-    background-color: var(--text-muted);
-}
 
 .message-role.tool {
     color: var(--secondary-color);
     background-color: #ede9fe;
-}
-
-.message-role.tool::before {
-    background-color: var(--secondary-color);
 }
 
 .message-time {
@@ -536,14 +497,6 @@ body {
     overflow: hidden;
 }
 
-.thinking::before {
-    content: "üí≠";
-    position: absolute;
-    top: 8px;
-    right: 12px;
-    opacity: 0.3;
-    font-size: 24px;
-}
 
 .thinking-label {
     font-weight: 600;
@@ -560,10 +513,6 @@ body {
     font-size: 13px;
     line-height: 1.6;
     color: #374151;
-}
-
-.thinking-label::before {
-    content: "ü§î";
 }
 
 .tool-calls {
@@ -598,10 +547,6 @@ body {
     gap: 8px;
 }
 
-.tool-name::before {
-    content: "‚öôÔ∏è";
-}
-
 .tool-args {
     font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
     font-size: 13px;
@@ -626,10 +571,6 @@ body {
     gap: 6px;
     margin-top: 12px;
     font-weight: 500;
-}
-
-.tool-call-id::before {
-    content: "üîß";
 }
 
 .assistant-tool-call {
@@ -665,10 +606,6 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.assistant-tool-name::before {
-    content: "";
 }
 
 .assistant-tool-toggle {
@@ -865,16 +802,6 @@ body {
     gap: 8px;
 }
 
-.loading::before {
-    content: "";
-    width: 20px;
-    height: 20px;
-    border: 2px solid var(--primary-color);
-    border-top: 2px solid transparent;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -904,7 +831,6 @@ body {
     animation: fadeIn 0.3s ease-out;
 }
 
-/* ÂìçÂ∫îÂºèËÆæËÆ° */
 @media (max-width: 768px) {
     .container {
         flex-direction: column;
@@ -921,7 +847,6 @@ body {
     }
 }
 
-/* ÊªöÂä®Êù°ÁæéÂåñ */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -941,7 +866,6 @@ body {
     background: #94a3b8;
 }
 
-/* ‰ª£Á†ÅÂùóÊ†∑Âºè */
 .content-text code,
 .tool-args code,
 .tool-result-content code {
@@ -954,7 +878,6 @@ body {
     border: 1px solid var(--border-color);
 }
 
-/* ÈìæÊé•Ê†∑Âºè */
 .content-text a,
 .tool-args a,
 .tool-result-content a {
@@ -970,7 +893,6 @@ body {
     border-bottom: 1px solid var(--primary-color);
 }
 
-/* ÂõæÁâáÊ†∑Âºè */
 .content-image {
     margin-top: 12px;
 }

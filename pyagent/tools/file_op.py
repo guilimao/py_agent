@@ -27,20 +27,20 @@ def _read_file_with_encoding(file_path: str) -> str:
             raw_data = f.read()
         # 使用chardet检测编码
         detection = chardet.detect(raw_data)
-        encoding = detection['encoding'] or 'utf-8'
+        encoding = detection['encoding'] or 'gbk'
         # 使用检测到的编码解码文件内容
         try:
             content = raw_data.decode(encoding)
         except (UnicodeDecodeError, LookupError):
             # 如果检测的编码失败，尝试常见编码
-            for alt_encoding in ['utf-8', 'gbk', 'gb2312', 'latin-1']:
+            for alt_encoding in ['utf-8', 'gbk', 'gb2312']:
                 try:
                     content = raw_data.decode(alt_encoding)
                     break
                 except UnicodeDecodeError:
                     continue
             else:
-                content = raw_data.decode('latin-1', errors='ignore')
+                content = raw_data.decode('gbk', errors='ignore')
         return content
     except Exception as e:
         return f"[读取文件失败: {str(e)}]"
