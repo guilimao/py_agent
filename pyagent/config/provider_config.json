@@ -74,11 +74,17 @@
                 ]
             },
             {
-                "name": "qwen3-next-80b-a3b-thinking",
-                "parameters": []
+                "name": "qwen3-vl-8b-instruct",
+                "parameters": [
+                    ["tools","Delete"],
+                    ["extra_body", {
+                        "vl_high_resolution_images": true,
+                        "enable_thinking": false
+                    }]
+                ]
             },
             {
-                "name": "qwen3-vl-flash",
+                "name": "qwen3-vl-30b-a3b-instruct",
                 "parameters": [
                     ["tools","Delete"],
                     ["extra_body", {
@@ -165,16 +171,28 @@
     },
     "ollama": {
         "api_key_env": "OLLAMA_KEY",
-        "base_url": "http://localhost:11434/v1/",
+        "base_url": "http://192.168.1.23:11451/v1/",
         "sdk_name": "openai",
         "models": [
             {
-                "name": "deepseek-r1:1.5b",
-                "parameters": []
+                "name": "qwen3-vl:8b-instruct-bf16",
+                "parameters": [
+                    ["tools","Delete"],
+                    ["extra_body", {
+                        "vl_high_resolution_images": true,
+                        "enable_thinking": false
+                    }]
+                ]
             },
             {
-                "name": "qwen3:4b",
-                "parameters": []
+                "name": "qwen3-vl:32b-instruct-q8_0",
+                "parameters": [
+                    ["tools","Delete"],
+                    ["extra_body", {
+                        "vl_high_resolution_images": true,
+                        "enable_thinking": false
+                    }]
+                ]
             }
         ]
     },
@@ -198,6 +216,19 @@
                 "name": "MiniMax-M2",
                 "parameters": [
                     ["max_tokens",196000]
+                ]
+            }
+        ]
+    },
+    "xiaomi": {
+        "api_key_env": "MIMO_API_KEY",
+        "base_url": "https://api.xiaomimimo.com/v1",
+        "sdk_name": "openai",
+        "models": [
+            {
+                "name": "mimo-v2-flash",
+                "parameters": [
+                    ["temperature",0.8]
                 ]
             }
         ]

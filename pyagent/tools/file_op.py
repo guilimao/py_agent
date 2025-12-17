@@ -1,7 +1,8 @@
 import os
 import json
 import re
-from typing import Union, Dict, List, Optional
+import fnmatch
+from typing import Union, Dict, List, Optional, Callable
 import chardet
 # 默认支持的文件扩展名
 DEFAULT_EXTENSIONS = {
@@ -44,6 +45,60 @@ def _read_file_with_encoding(file_path: str) -> str:
         return content
     except Exception as e:
         return f"[读取文件失败: {str(e)}]"
+def _parse_gitignore(gitignore_path: str) -> Callable[[str], bool]:
+    """解析.gitignore文件，返回一个函数，判断相对路径是否被忽略
+    Args:
+        gitignore_path: .gitignore文件的完整路径
+    Returns:
+        一个函数，接受相对于.gitignore所在目录的文件路径，返回是否被忽略
+    """
+    patterns = []
+    try:
+        with open(gitignore_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+    except Exception:
+        # 如果无法读取，返回一个始终返回False的函数
+        return lambda rel_path: False
+    base_dir = os.path.dirname(gitignore_path)
+    for line in lines:
+        line = line.strip()
+        # 忽略空行和注释
+        if not line or line.startswith('#'):
+            continue
+        # 去除行尾的换行符，并处理尾随空格
+        pattern = line.rstrip()
+        patterns.append(pattern)
+    def is_ignored(rel_path: str) -> bool:
+        """判断相对路径是否被忽略"""
+        # 将路径统一为Unix风格分隔符，便于匹配
+        rel_path_unix = rel_path.replace('\\', '/')
+        
+        # 始终跳过.git文件夹（如果检测到gitignore文件，表明存在git）
+        # 检查路径是否为.git目录或其子目录
+        if rel_path_unix == '.git' or rel_path_unix.startswith('.git/') or '/.git/' in rel_path_unix:
+            return True
+        for pattern in patterns:
+            # 简单实现：使用fnmatch进行通配符匹配
+            # 注意：fnmatch匹配整个字符串，所以我们需要确保模式与路径匹配
+            # .gitignore模式可能包含目录，需要特殊处理
+            if fnmatch.fnmatch(rel_path_unix, pattern):
+                return True
+            # 如果模式以/结尾，表示目录，需要匹配目录下的所有内容
+            if pattern.endswith('/'):
+                dir_pattern = pattern.rstrip('/')
+                if rel_path_unix.startswith(dir_pattern + '/'):
+                    return True
+                if fnmatch.fnmatch(rel_path_unix, dir_pattern + '/*'):
+                    return True
+            # 如果模式包含通配符，已经由fnmatch处理
+            # 如果没有通配符，可能是具体文件或目录
+            elif '/' not in pattern and '/' in rel_path_unix:
+                # 模式是文件名，匹配任意层级
+                filename = os.path.basename(rel_path_unix)
+                if fnmatch.fnmatch(filename, pattern):
+                    return True
+        return False
+    return is_ignored
 def read_file(file_names: Union[str, List[str]]) -> str:
     """
     读取一个或多个文件的内容，或提取目录下的代码文件
@@ -81,14 +136,29 @@ def read_file(file_names: Union[str, List[str]]) -> str:
                     dir_result_parts.append(f"  {rel_path}")
                 dir_result_parts.append("")  # 空行分隔
                 # 读取并添加所有文件内容
+                all_contents = []
+                total_chars = 0
+                exceeds_limit = False
+                
                 for file_path in files:
                     rel_path = os.path.relpath(file_path, base_dir)
                     content = _read_file_with_encoding(file_path)
-                    dir_result_parts.extend([
-                        f"<{rel_path}>",
-                        content,
-                        ""
-                    ])
+                    all_contents.append((rel_path, content))
+                    total_chars += len(content)
+                    if total_chars > 10000:
+                        exceeds_limit = True
+                
+                if exceeds_limit:
+                    # 如果超过限制，添加警告信息，不显示文件内容
+                    dir_result_parts.append("[警告：目录内容总字符数超过10000字符（共{}字符），内容长度过长，请只读取需要的具体文件]".format(total_chars))
+                else:
+                    # 未超过限制，正常添加所有内容
+                    for rel_path, content in all_contents:
+                        dir_result_parts.extend([
+                            f"<{rel_path}>",
+                            content,
+                            ""
+                        ])
                 results.append("\n".join(dir_result_parts).rstrip())
             elif os.path.isfile(abs_path):
                 # 处理单个文件 - 使用原逻辑
@@ -142,18 +212,29 @@ def find(
             return f"查找失败：路径不存在 - {abs_path}"
         if not os.path.isdir(abs_path):
             return f"查找失败：路径不是目录 - {abs_path}"
+        # 检查是否存在.gitignore文件
+        gitignore_path = os.path.join(abs_path, '.gitignore')
+        is_ignored = None
+        if os.path.exists(gitignore_path):
+            is_ignored = _parse_gitignore(gitignore_path)
         # 编译正则表达式（如果提供）
         file_name_pattern = re.compile(file_name) if file_name else None
         content_pattern = re.compile(content) if content else None
         matching_files = []
+        ignored_count = 0
         # 遍历目录
         for root, _, files in os.walk(abs_path):
             for file in files:
                 file_path = os.path.join(root, file)
+                # 计算相对于搜索目录的路径
+                rel_path = os.path.relpath(file_path, abs_path)
+                # 检查是否被.gitignore忽略
+                if is_ignored and is_ignored(rel_path):
+                    ignored_count += 1
+                    continue
                 # 检查文件名是否匹配
                 if file_name_pattern:
-                    relative_path = os.path.relpath(file_path, abs_path)
-                    if not file_name_pattern.search(relative_path):
+                    if not file_name_pattern.search(rel_path):
                         continue
                 # 如果需要匹配内容
                 if content_pattern:
@@ -165,13 +246,67 @@ def find(
                         continue
                 # 如果通过了所有条件，添加到结果
                 matching_files.append(file_path)
-        # 返回结果
+        # 构建结果字符串
         if not matching_files:
-            result = [f"在 {abs_path} 中未找到匹配的文件"]
-        result = [f"在 {abs_path} 中找到 {len(matching_files)} 个匹配文件:"]
-        for file_path in sorted(matching_files):
-            result.append(f"  {file_path}")
-        return "\n".join(result)
+            result_msg = f"在 {abs_path} 中未找到匹配的文件"
+            if ignored_count > 0:
+                result_msg += f"\n[gitignore忽略了{ignored_count}个文件]"
+            return result_msg
+        # 处理输出限制
+        # 如果只有一个结果，完整输出
+        if len(matching_files) == 1:
+            result_lines = [f"在 {abs_path} 中找到 1 个匹配文件:"]
+            for file_path in sorted(matching_files):
+                result_lines.append(f"  {file_path}")
+            result_text = "\n".join(result_lines)
+        else:
+            # 如果有多个结果，检查总长度
+            # 首先构建完整的输出
+            result_lines = [f"在 {abs_path} 中找到 {len(matching_files)} 个匹配文件:"]
+            for file_path in sorted(matching_files):
+                result_lines.append(f"  {file_path}")
+            full_output = "\n".join(result_lines)
+            # 如果总长度小于等于1000个字符，返回完整输出
+            if len(full_output) <= 1000:
+                result_text = full_output
+            else:
+                # 如果超过1000个字符，需要截断
+                # 先计算标题行长度（包括换行符）
+                title_line = result_lines[0] + "\n"
+                title_length = len(title_line)
+                # 计算剩余可用长度
+                remaining_length = 1000 - title_length - 50  # 留50个字符给省略信息
+                # 收集部分文件
+                displayed_files = []
+                current_length = 0
+                for i, file_path in enumerate(sorted(matching_files)):
+                    file_line = f"  {file_path}\n"
+                    line_length = len(file_line)
+                    # 如果添加这一行会超过限制，停止添加
+                    if current_length + line_length > remaining_length:
+                        # 检查是否至少显示了一个文件
+                        if not displayed_files:
+                            # 如果连一个文件都显示不了，至少显示第一个
+                            displayed_files.append(file_line.rstrip())
+                            truncated = True
+                        else:
+                            truncated = True
+                        break
+                    displayed_files.append(file_line.rstrip())
+                    current_length += line_length
+                    truncated = False
+                # 构建最终输出
+                output_lines = [f"在 {abs_path} 中找到 {len(matching_files)} 个匹配文件:"]
+                output_lines.extend(displayed_files)
+                # 添加省略信息
+                if truncated:
+                    displayed_count = len(displayed_files)
+                    output_lines.append(f"  ... (仅显示前{displayed_count}个文件，共{len(matching_files)}个)")
+                result_text = "\n".join(output_lines)
+        # 添加.gitignore忽略统计信息
+        if ignored_count > 0:
+            result_text += f"\n[gitignore忽略了{ignored_count}个文件]"
+        return result_text
     except re.error as e:
         return f"查找失败：正则表达式错误 - {str(e)}"
     except Exception as e:
