@@ -66,6 +66,11 @@ def _parse_gitignore(gitignore_path: str) -> Callable[[str], bool]:
     return is_ignored
 
 
+def _is_hidden_folder(name: str) -> bool:
+    """判断是否为隐藏文件夹（以点开头的文件夹）"""
+    return name.startswith('.')
+
+
 def _get_tree_structure(path: str, max_items_per_level: int = 20, max_depth: int = 8, 
                         current_depth: int = 0, is_ignored: Optional[Callable[[str], bool]] = None,
                         rel_path: str = '.') -> Tuple[List[str], int]:
@@ -139,17 +144,24 @@ def _get_tree_structure(path: str, max_items_per_level: int = 20, max_depth: int
         indent = "    " * current_depth
         line = f"{indent}{prefix}{dir_name}/"
         
-        # 递归获取子目录结构
-        subdir_path = os.path.join(path, dir_name)
-        subdir_lines, subdir_count = _get_tree_structure(
-            subdir_path, max_items_per_level, max_depth, current_depth + 1,
-            is_ignored, dir_rel_path
-        )
-        
-        # 如果有子目录或文件，显示计数
-        if subdir_count > 0:
-            line += f" [{subdir_count}项]"
+        # 检查是否为隐藏文件夹
+        if _is_hidden_folder(dir_name):
+            # 隐藏文件夹不展开，添加特殊标记
+            line += " [隐藏]"
+            subdir_lines = []
+            subdir_count = 0
+        else:
+            # 递归获取子目录结构
+            subdir_path = os.path.join(path, dir_name)
+            subdir_lines, subdir_count = _get_tree_structure(
+                subdir_path, max_items_per_level, max_depth, current_depth + 1,
+                is_ignored, dir_rel_path
+            )
             
+            # 如果有子目录或文件，显示计数
+            if subdir_count > 0:
+                line += f" [{subdir_count}项]"
+        
         lines.append(line)
         lines.extend(subdir_lines)
         displayed_items += 1
@@ -333,21 +345,7 @@ def list_directory(path: str = ".") -> str:
             output_parts.append("    [空目录]")
         else:
             output_parts.extend(tree_lines)
-        
-        # 添加使用提示
-        output_parts.extend([
-            "",
-            "说明:",
-            "  • 文件夹以 '/' 结尾",
-            "  • [n项] 表示该文件夹包含的子项数量",
-            "  • 输出已自动截断，控制在2000字符内",
-            "  • 同一层级项目过多时，优先显示文件夹"
-        ])
-        
-        # 添加.gitignore提示
-        if gitignore_used:
-            output_parts.append("  • 已应用.gitignore规则，跳过了被忽略的文件和目录")
-        
+
         return "\n".join(output_parts)
         
     except Exception as e:
@@ -359,7 +357,7 @@ DIRECTORY_TOOLS = [
         "type": "function",
         "function": {
             "name": "list_directory",
-            "description": "列出目录的树状结构，输出格式化的树状视图。当同一层级项目过多时，优先显示文件夹并自动截断输出，总输出量控制在2000字符内。如果目录中存在.gitignore文件，将自动跳过其中指定的文件和目录。",
+            "description": "列出目录的树状结构。当同一层级项目过多时，总输出量控制在2000字符内。如果目录中存在.gitignore文件，将自动跳过其中指定的文件和目录。",
             "parameters": {
                 "type": "object",
                 "properties": {

@@ -206,6 +206,50 @@ class TerminalManager:
 terminal_manager = TerminalManager()
 
 
+def truncate_output_by_chars(output_text: str, max_chars: int = 5000) -> str:
+    """
+    当输出文本超过最大字符数时，截断为最后若干行，使总字符数不超过限制
+    
+    Args:
+        output_text: 原始输出文本
+        max_chars: 最大字符数限制
+        
+    Returns:
+        截断后的输出文本
+    """
+    if len(output_text) <= max_chars:
+        return output_text
+    
+    # 提示信息
+    truncation_message = "...\n(由于输出过长，已截断为最后若干行)\n"
+    message_len = len(truncation_message)
+    
+    # 计算可用于实际内容的字符数
+    available_chars = max_chars - message_len
+    
+    # 如果可用字符数不足，直接返回提示信息
+    if available_chars <= 0:
+        return truncation_message.strip()
+    
+    # 简单方法：从末尾截取 available_chars 个字符
+    # 然后确保从行开头开始
+    truncated = output_text[-available_chars:]
+    
+    # 查找第一个换行符，确保从完整行开始
+    first_newline = truncated.find('\n')
+    if first_newline != -1:
+        truncated = truncated[first_newline + 1:]
+    
+    # 构建最终结果
+    result = truncation_message + truncated
+    
+    # 确保不超过限制
+    if len(result) > max_chars:
+        result = result[:max_chars]
+    
+    return result
+
+
 def execute_command(send: str = None, session_id: int = None, refresh: bool = False) -> str:
     """
     在命令行终端中执行命令
@@ -233,6 +277,8 @@ def execute_command(send: str = None, session_id: int = None, refresh: bool = Fa
                 return f"会话 {session_id} 暂无输出"
             
             output_text = "\n".join(recent_output)
+            # 应用字符数截断
+            output_text = truncate_output_by_chars(output_text, 5000)
             return f"""
 📟 终端会话 {session_id} - 状态刷新
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -260,6 +306,8 @@ def execute_command(send: str = None, session_id: int = None, refresh: bool = Fa
                 # 命令执行完成
                 output = session.get_recent_output()
                 output_text = "\n".join(output)
+                # 应用字符数截断
+                output_text = truncate_output_by_chars(output_text, 5000)
                 
                 return f"""
 📟 终端会话 {session_id} - 命令执行完成
@@ -280,6 +328,9 @@ def execute_command(send: str = None, session_id: int = None, refresh: bool = Fa
                 else:
                     output_text = "\n".join(output)
                 
+                # 应用字符数截断
+                output_text = truncate_output_by_chars(output_text, 5000)
+                
                 return f"""
 📟 终端会话 {session_id} - 命令执行中
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -296,6 +347,8 @@ def execute_command(send: str = None, session_id: int = None, refresh: bool = Fa
             if time.time() - start_time > max_wait:
                 output = session.get_recent_output(30)
                 output_text = "\n".join(output)
+                # 应用字符数截断
+                output_text = truncate_output_by_chars(output_text, 5000)
                 
                 return f"""
 📟 终端会话 {session_id} - 命令超时

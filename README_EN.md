@@ -44,17 +44,6 @@ Parameter Description:
 - Available models must match the provider-supported model list configured in `config/provider_config.json`
 - You can add your desired model providers and model names by following the format in `config/provider_config.json`
 
-Examples:
-```bash
-# Use default model (Volcano Engine doubao-1-5-thinking-pro-250415)
-pyagent
-
-# Specify Volcano Engine's deepseek-r1-250120 model
-pyagent --model deepseek-r1-250120
-
-# Specify DeepSeek's deepseek-chat model
-pyagent --model deepseek-chat
-```
 
 ## Roadmap
 

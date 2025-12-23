@@ -232,5 +232,18 @@
                 ]
             }
         ]
+    },
+    "zhipu":{
+        "api_key_env": "ZAI_API_KEY",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4/",
+        "sdk_name": "openai",
+        "models": [
+            {
+                "name": "glm-4.7",
+                "parameters": [
+                    ["temperature",1.0]
+                ]
+            }
+        ]
     }
 }
