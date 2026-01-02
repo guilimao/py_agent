@@ -174,19 +174,36 @@ def read_file(file_names: Union[str, List[str]]) -> str:
         return results[0] if results else "没有路径被处理"
     else:
         return "\n\n" + "="*50 + "\n".join(results)
-def create_file(file_name: str, file_content: Union[str, Dict, List]) -> str:
+def create_file(file_name: str, file_content: Union[str, Dict, List], backup: bool = False) -> str:
     try:
         abs_path = os.path.abspath(file_name)
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+        
+        # 备份逻辑
+        backup_path = None
+        if backup and os.path.exists(abs_path):
+            backup_path = abs_path + ".backup"
+            # 如果备份文件已存在，删除它
+            if os.path.exists(backup_path):
+                os.remove(backup_path)
+            # 复制原文件到备份文件
+            import shutil
+            shutil.copy2(abs_path, backup_path)
+        
         # 处理JSON对象或数组，转换为格式化字符串
         if isinstance(file_content, (Dict, List)):
             file_content_str = json.dumps(file_content, ensure_ascii=False, indent=2)
         else:
             file_content_str = str(file_content)
+        
         with open(abs_path, 'w', encoding='utf-8') as file:
             file.write(file_content_str)
-        result = f"{abs_path}\n{file_content_str}"
-        return result.strip()
+        
+        # 构建结果信息
+        result = f"文件已成功创建/更新: {abs_path}"
+        if backup_path:
+            result += f"\n已创建备份文件: {backup_path}"
+        return result
     except json.JSONDecodeError as e:
         return f"JSON序列化错误：无法将内容转换为JSON字符串 - {str(e)}"
     except Exception as e:
@@ -415,7 +432,7 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "create_file",
-            "description": "创建新文件或更新现有文件内容。",
+            "description": "创建新文件或更新现有文件内容。当backup为True时，如果目标文件已存在，将在同目录下创建.backup后缀的备份文件。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -427,6 +444,11 @@ FILE_TOOLS = [
                         "type": ["string", "object"],
                         "description": "文件内容",
                     },
+                    "backup": {
+                        "type": "boolean",
+                        "description": "是否创建备份文件，默认为False",
+                        "default": False
+                    }
                 },
                 "required": ["file_name", "file_content"],
             },
