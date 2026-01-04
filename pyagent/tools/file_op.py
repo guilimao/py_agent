@@ -483,7 +483,7 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "replace",
-            "description": "在文件中查找并替换文本内容",
+            "description": "在文件中查找并替换文本内容，可以在replacement前后附带一些原始文本，作为插入编辑使用",
             "parameters": {
                 "type": "object",
                 "properties": {
