@@ -2,6 +2,7 @@ import os
 import json
 import re
 import fnmatch
+import shutil
 from typing import Union, Dict, List, Optional, Callable
 import chardet
 # 默认支持的文件扩展名
@@ -72,7 +73,6 @@ def _parse_gitignore(gitignore_path: str) -> Callable[[str], bool]:
         """判断相对路径是否被忽略"""
         # 将路径统一为Unix风格分隔符，便于匹配
         rel_path_unix = rel_path.replace('\\', '/')
-        
         # 始终跳过.git文件夹（如果检测到gitignore文件，表明存在git）
         # 检查路径是否为.git目录或其子目录
         if rel_path_unix == '.git' or rel_path_unix.startswith('.git/') or '/.git/' in rel_path_unix:
@@ -139,7 +139,6 @@ def read_file(file_names: Union[str, List[str]]) -> str:
                 all_contents = []
                 total_chars = 0
                 exceeds_limit = False
-                
                 for file_path in files:
                     rel_path = os.path.relpath(file_path, base_dir)
                     content = _read_file_with_encoding(file_path)
@@ -147,23 +146,22 @@ def read_file(file_names: Union[str, List[str]]) -> str:
                     total_chars += len(content)
                     if total_chars > 10000:
                         exceeds_limit = True
-                
                 if exceeds_limit:
                     # 如果超过限制，添加警告信息，不显示文件内容
-                    dir_result_parts.append("[警告：目录内容总字符数超过10000字符（共{}字符），内容长度过长，请只读取需要的具体文件]".format(total_chars))
+                    dir_result_parts.append(f"[警告：目录内容总字符数超过10000字符（共{total_chars}字符），内容长度过长，请只读取需要的具体文件]".format(total_chars))
                 else:
                     # 未超过限制，正常添加所有内容
                     for rel_path, content in all_contents:
                         dir_result_parts.extend([
                             f"<{rel_path}>",
                             content,
-                            ""
+                            "<file_end>"
                         ])
                 results.append("\n".join(dir_result_parts).rstrip())
             elif os.path.isfile(abs_path):
                 # 处理单个文件 - 使用原逻辑
                 content = _read_file_with_encoding(abs_path)
-                result = f"{abs_path}\n{content}"
+                result = f"{abs_path}\n{content}\n<file_end>"
                 results.append(result.strip())
             else:
                 results.append(f"{abs_path}\n路径既不是文件也不是目录")
@@ -174,35 +172,20 @@ def read_file(file_names: Union[str, List[str]]) -> str:
         return results[0] if results else "没有路径被处理"
     else:
         return "\n\n" + "="*50 + "\n".join(results)
-def create_file(file_name: str, file_content: Union[str, Dict, List], backup: bool = False) -> str:
+def write_file(file_name: str, file_content: Union[str, Dict, List]) -> str:
     try:
         abs_path = os.path.abspath(file_name)
         os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-        
-        # 备份逻辑
-        backup_path = None
-        if backup and os.path.exists(abs_path):
-            backup_path = abs_path + ".backup"
-            # 如果备份文件已存在，删除它
-            if os.path.exists(backup_path):
-                os.remove(backup_path)
-            # 复制原文件到备份文件
-            import shutil
-            shutil.copy2(abs_path, backup_path)
-        
+
         # 处理JSON对象或数组，转换为格式化字符串
         if isinstance(file_content, (Dict, List)):
             file_content_str = json.dumps(file_content, ensure_ascii=False, indent=2)
         else:
             file_content_str = str(file_content)
-        
         with open(abs_path, 'w', encoding='utf-8') as file:
             file.write(file_content_str)
-        
         # 构建结果信息
         result = f"文件已成功创建/更新: {abs_path}"
-        if backup_path:
-            result += f"\n已创建备份文件: {backup_path}"
         return result
     except json.JSONDecodeError as e:
         return f"JSON序列化错误：无法将内容转换为JSON字符串 - {str(e)}"
@@ -410,6 +393,182 @@ def replace(
         return "\n".join(results) if results else "替换完成"
     except Exception as e:
         return f"替换失败：{str(e)}"
+def file_operation(
+    path1: str,
+    path2: str,
+    operation: str,
+    force: bool = False
+) -> str:
+    """
+    文件操作工具，提供复制、删除、移动功能
+    Args:
+        path1: 源文件路径或目录路径
+        path2: 目标文件路径或目录路径（删除操作时不使用）
+        operation: 操作类型，可选值：'copy'（复制）、'delete'（删除）、'move'（移动）
+        force: 强制选项，默认为False
+    Returns:
+        操作结果描述字符串
+    """
+    try:
+        abs_path1 = os.path.abspath(path1)
+        abs_path2 = os.path.abspath(path2) if path2 else None
+        # 检查源路径是否存在
+        if not os.path.exists(abs_path1):
+            return f"操作失败：源路径不存在 - {abs_path1}"
+        # 操作类型验证
+        operation = operation.lower()
+        if operation not in ['copy', 'delete', 'move']:
+            return f"操作失败：不支持的操作类型 '{operation}'，支持的操作类型：copy, delete, move"
+        # 复制操作
+        if operation == 'copy':
+            if not abs_path2:
+                return "操作失败：复制操作需要指定目标路径"
+            # 检查源和目标是否相同
+            if abs_path1 == abs_path2:
+                return "操作失败：源路径和目标路径不能相同"
+            # 如果源是文件
+            if os.path.isfile(abs_path1):
+                # 检查目标是否是目录
+                if os.path.isdir(abs_path2):
+                    # 目标为目录，将文件复制到该目录下
+                    target_file = os.path.join(abs_path2, os.path.basename(abs_path1))
+                else:
+                    # 目标为文件路径
+                    target_file = abs_path2
+                    # 确保目标目录存在
+                    os.makedirs(os.path.dirname(target_file), exist_ok=True)
+                # 检查目标文件是否存在
+                if os.path.exists(target_file):
+                    if not force:
+                        return f"操作失败：目标文件已存在 - {target_file}，如需覆盖请设置force=True"
+                    else:
+                        # 强制覆盖，先删除旧文件
+                        os.remove(target_file)
+                # 执行复制
+                shutil.copy2(abs_path1, target_file)
+                return f"复制成功：{abs_path1} -> {target_file}"
+            # 如果源是目录
+            elif os.path.isdir(abs_path1):
+                # 如果目标已存在且是文件，则失败
+                if os.path.exists(abs_path2) and os.path.isfile(abs_path2):
+                    return f"操作失败：目标路径是文件，无法复制目录到文件 - {abs_path2}"
+                # 确保目标目录存在
+                os.makedirs(abs_path2, exist_ok=True)
+                # 遍历源目录
+                copied_files = 0
+                conflict_files = []
+                for root, dirs, files in os.walk(abs_path1):
+                    # 计算相对于源目录的路径
+                    rel_path = os.path.relpath(root, abs_path1)
+                    target_dir = os.path.join(abs_path2, rel_path)
+                    # 创建目标目录
+                    os.makedirs(target_dir, exist_ok=True)
+                    # 复制文件
+                    for file in files:
+                        src_file = os.path.join(root, file)
+                        dst_file = os.path.join(target_dir, file)
+                        # 检查目标文件是否存在
+                        if os.path.exists(dst_file):
+                            if not force:
+                                conflict_files.append(dst_file)
+                                continue
+                            else:
+                                # 强制覆盖，先删除旧文件
+                                os.remove(dst_file)
+                        shutil.copy2(src_file, dst_file)
+                        copied_files += 1
+                # 处理冲突
+                if conflict_files:
+                    conflict_msg = f"\n警告：以下文件因重名冲突未复制（共{len(conflict_files)}个文件）:\n"
+                    conflict_msg += "\n".join([f"  - {f}" for f in conflict_files[:10]])
+                    if len(conflict_files) > 10:
+                        conflict_msg += f"\n  ... 以及{len(conflict_files) - 10}个文件"
+                    conflict_msg += "\n如需覆盖请设置force=True"
+                    return f"部分复制完成：复制了{copied_files}个文件{conflict_msg}"
+                return f"复制成功：从 {abs_path1} 复制到 {abs_path2}，共复制{copied_files}个文件"
+        # 删除操作
+        elif operation == 'delete':
+            # 如果是文件，直接删除
+            if os.path.isfile(abs_path1):
+                os.remove(abs_path1)
+                return f"删除成功：文件 {abs_path1}"
+            # 如果是目录
+            elif os.path.isdir(abs_path1):
+                # 检查目录是否为空（除了.和..）
+                dir_contents = os.listdir(abs_path1)
+                if dir_contents and not force:
+                    return f"操作失败：目录非空 - {abs_path1}，如需删除整个目录请设置force=True"
+                # 删除目录及其所有内容
+                shutil.rmtree(abs_path1)
+                return f"删除成功：目录 {abs_path1} 及其所有内容"
+        # 移动操作
+        elif operation == 'move':
+            if not abs_path2:
+                return "操作失败：移动操作需要指定目标路径"
+            # 检查源和目标是否相同
+            if abs_path1 == abs_path2:
+                return "操作失败：源路径和目标路径不能相同"
+            # 如果源是文件
+            if os.path.isfile(abs_path1):
+                # 检查目标是否是目录
+                if os.path.isdir(abs_path2):
+                    # 目标为目录，将文件移动到该目录下
+                    target_file = os.path.join(abs_path2, os.path.basename(abs_path1))
+                else:
+                    # 目标为文件路径
+                    target_file = abs_path2
+                    # 确保目标目录存在
+                    os.makedirs(os.path.dirname(target_file), exist_ok=True)
+                # 检查目标文件是否存在
+                if os.path.exists(target_file):
+                    if not force:
+                        return f"操作失败：目标文件已存在 - {target_file}，如需覆盖请设置force=True"
+                    else:
+                        # 强制覆盖，先删除旧文件
+                        os.remove(target_file)
+                # 执行移动
+                shutil.move(abs_path1, target_file)
+                return f"移动成功：{abs_path1} -> {target_file}"
+            # 如果源是目录
+            elif os.path.isdir(abs_path1):
+                # 如果目标已存在且是文件，则失败
+                if os.path.exists(abs_path2) and os.path.isfile(abs_path2):
+                    return f"操作失败：目标路径是文件，无法移动目录到文件 - {abs_path2}"
+                # 检查目标是否在源目录内（防止循环移动）
+                try:
+                    abs_path2 = os.path.abspath(abs_path2)
+                    abs_path1 = os.path.abspath(abs_path1)
+                    # 判断目标是否在源目录内
+                    if abs_path2.startswith(abs_path1 + os.sep):
+                        return f"操作失败：目标路径 {abs_path2} 在源目录 {abs_path1} 内，无法移动"
+                except:
+                    pass
+                # 确保目标目录存在
+                os.makedirs(os.path.dirname(abs_path2) if os.path.dirname(abs_path2) else abs_path2, exist_ok=True)
+                # 检查目标是否已存在
+                if os.path.exists(abs_path2):
+                    if not force:
+                        # 尝试列出目标目录内容
+                        try:
+                            existing_files = os.listdir(abs_path2)
+                            if existing_files:
+                                return f"操作失败：目标目录非空 - {abs_path2}，如需覆盖请设置force=True"
+                        except:
+                            pass
+                        return f"操作失败：目标目录已存在 - {abs_path2}，如需覆盖请设置force=True"
+                    else:
+                        # 强制覆盖，先删除目标目录
+                        shutil.rmtree(abs_path2)
+                # 执行移动
+                shutil.move(abs_path1, abs_path2)
+                return f"移动成功：{abs_path1} -> {abs_path2}"
+        return f"操作完成：{operation} {abs_path1}"
+    except PermissionError as e:
+        return f"操作失败：权限不足 - {str(e)}"
+    except OSError as e:
+        return f"操作失败：系统错误 - {str(e)}"
+    except Exception as e:
+        return f"操作失败：{str(e)}"
 FILE_TOOLS = [
     {
         "type": "function",
@@ -431,8 +590,8 @@ FILE_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "create_file",
-            "description": "创建新文件或更新现有文件内容。当backup为True时，如果目标文件已存在，将在同目录下创建.backup后缀的备份文件。",
+            "name": "write_file",
+            "description": "创建新文件或更新现有文件内容。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -443,11 +602,6 @@ FILE_TOOLS = [
                     "file_content": {
                         "type": ["string", "object"],
                         "description": "文件内容",
-                    },
-                    "backup": {
-                        "type": "boolean",
-                        "description": "是否创建备份文件，默认为False",
-                        "default": False
                     }
                 },
                 "required": ["file_name", "file_content"],
@@ -507,11 +661,43 @@ FILE_TOOLS = [
                 "required": ["file_path", "replacements"],
             },
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "file_operation",
+            "description": "文件操作工具，提供复制、删除、移动功能。参数说明：1.文件路径1（源路径） 2.文件路径2（目标路径，删除操作时不使用） 3.功能参数（可选值：copy, delete, move） 4.强制选项（布尔值，默认为False）",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path1": {
+                        "type": "string",
+                        "description": "文件路径1（源文件路径或目录路径）",
+                    },
+                    "path2": {
+                        "type": "string",
+                        "description": "文件路径2（目标文件路径或目录路径，删除操作时不使用）",
+                    },
+                    "operation": {
+                        "type": "string",
+                        "description": "功能参数，可选值：copy（复制）、delete（删除）、move（移动）",
+                        "enum": ["copy", "delete", "move"]
+                    },
+                    "force": {
+                        "type": "boolean",
+                        "description": "强制选项，默认为False。复制/移动时，为True则覆盖重名文件；删除时，为True则删除整个目录",
+                        "default": False
+                    }
+                },
+                "required": ["path1", "path2", "operation"],
+            },
+        }
     }
 ]
 FILE_FUNCTIONS = {
     "read_file": read_file,
-    "create_file": create_file,
+    "write_file": write_file,
     "replace": replace,
-    "find": find
+    "find": find,
+    "file_operation": file_operation
 }

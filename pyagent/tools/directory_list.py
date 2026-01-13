@@ -59,7 +59,7 @@ def _is_hidden_folder(name: str) -> bool:
     """判断是否为隐藏文件夹（以点开头的文件夹）"""
     return name.startswith('.')
 def _get_tree_structure(path: str, max_items_per_level: int = 20, max_depth: int = 8, 
-                        current_depth: int = 0, is_ignored: Optional[Callable[[str], bool]] = None,
+                        current_depth: int = 0, should_skip: Optional[Callable[[str, str], bool]] = None,
                         rel_path: str = '.') -> Tuple[List[str], int]:
     """
     递归获取目录的树状结构
@@ -68,7 +68,7 @@ def _get_tree_structure(path: str, max_items_per_level: int = 20, max_depth: int
         max_items_per_level: 每层最多显示的项目数
         max_depth: 最大递归深度
         current_depth: 当前深度
-        is_ignored: 判断文件是否应被忽略的函数（可选）
+        should_skip: 判断文件是否应被忽略的函数（可选），接受两个参数：item_name和rel_path
         rel_path: 当前路径相对于根目录的相对路径
     Returns:
         Tuple[List[str], int]: (当前目录的树状结构行列表, 该目录下显示的总项目数)
@@ -90,7 +90,7 @@ def _get_tree_structure(path: str, max_items_per_level: int = 20, max_depth: int
         else:
             item_rel_path = os.path.join(rel_path, item)
         # 检查是否应被忽略
-        if is_ignored and is_ignored(item_rel_path):
+        if should_skip and should_skip(item, item_rel_path):
             continue
         try:
             if os.path.isdir(full_path):
@@ -128,7 +128,7 @@ def _get_tree_structure(path: str, max_items_per_level: int = 20, max_depth: int
             subdir_path = os.path.join(path, dir_name)
             subdir_lines, subdir_count = _get_tree_structure(
                 subdir_path, max_items_per_level, max_depth, current_depth + 1,
-                is_ignored, dir_rel_path
+                should_skip, dir_rel_path
             )
             # 如果有子目录或文件，显示计数
             if subdir_count > 0:
@@ -188,14 +188,15 @@ def _truncate_output(lines: List[str], max_chars: int = 2000) -> List[str]:
     if remaining_lines > 0:
         result_lines.append(f"... (还有{remaining_lines}行未显示)")
     return result_lines
-def list_directory(path: str = ".", depth: int = 0) -> str:
+def list_directory(path: str = ".", depth: int = 0, blacklist: List[str] = None, whitelist: List[str] = None) -> str:
     """
     列出目录的树状结构
     注意：如果目录中存在.gitignore文件，将自动跳过其中指定的文件和目录
     Args:
-        path: 要列出的目录路径，默认为当前目录
-        depth: 展开目录的层数，默认值为0，代表全部展开，
-               1代表只展开当前目录下一层，2代表展开两层，以此类推
+        path: 要列出的目录路径（默认为当前目录）
+        depth: 展开目录的层数，默认值为0，代表全部展开，1代表只展开当前目录下一层，2代表展开两层，以此类推
+        blacklist: 黑名单字符串数组，用于排除文件名中含有特定字符的项
+        whitelist: 白名单字符串数组，用于仅保留文件名中含有特定字符的项
     Returns:
         目录的树状结构字符串，总输出量控制在2000字符内
     """
@@ -214,7 +215,29 @@ def list_directory(path: str = ".", depth: int = 0) -> str:
         if os.path.exists(gitignore_path):
             is_ignored = _parse_gitignore(gitignore_path)
             gitignore_used = True
-        # 获取基本统计信息（考虑.gitignore规则）
+        # 创建组合的should_skip函数
+        def should_skip(item_name: str, rel_path: str) -> bool:
+            """判断是否应跳过该项"""
+            # 1. 首先检查.gitignore规则
+            if is_ignored and is_ignored(rel_path):
+                return True
+            # 2. 检查黑名单
+            if blacklist:
+                for pattern in blacklist:
+                    if pattern in item_name:
+                        return True
+            # 3. 检查白名单（如果白名单不为空）
+            if whitelist:
+                # 如果白名单不为空，但项目名不包含任何白名单字符串，则跳过
+                matches_whitelist = False
+                for pattern in whitelist:
+                    if pattern in item_name:
+                        matches_whitelist = True
+                        break
+                if not matches_whitelist:
+                    return True
+            return False
+        # 获取基本统计信息（考虑所有过滤规则）
         total_dirs = 0
         total_files = 0
         ignored_dirs = 0
@@ -232,7 +255,7 @@ def list_directory(path: str = ".", depth: int = 0) -> str:
                         dir_rel_path = os.path.join(rel_root, dir_name)
                     else:
                         dir_rel_path = dir_name
-                    if is_ignored and is_ignored(dir_rel_path):
+                    if should_skip(dir_name, dir_rel_path):
                         ignored_dirs += 1
                     else:
                         filtered_dirs.append(dir_name)
@@ -243,7 +266,7 @@ def list_directory(path: str = ".", depth: int = 0) -> str:
                         file_rel_path = os.path.join(rel_root, file_name)
                     else:
                         file_rel_path = file_name
-                    if is_ignored and is_ignored(file_rel_path):
+                    if should_skip(file_name, file_rel_path):
                         ignored_files += 1
                     else:
                         filtered_files.append(file_name)
@@ -265,7 +288,7 @@ def list_directory(path: str = ".", depth: int = 0) -> str:
             abs_path, 
             max_items_per_level=15,
             max_depth=max_depth,
-            is_ignored=is_ignored
+            should_skip=should_skip
         )
         # 截断输出以控制字符数
         tree_lines = _truncate_output(tree_lines, max_chars=1800)  # 留一些空间给标题和统计信息
@@ -277,6 +300,14 @@ def list_directory(path: str = ".", depth: int = 0) -> str:
         # 添加.gitignore信息
         if gitignore_used:
             output_parts.append(f"[gitignore跳过了{ignored_dirs + ignored_files}个项: {ignored_dirs}个文件夹, {ignored_files}个文件]")
+        # 添加过滤规则信息
+        filter_info = []
+        if blacklist:
+            filter_info.append(f"黑名单: {blacklist}")
+        if whitelist:
+            filter_info.append(f"白名单: {whitelist}")
+        if filter_info:
+            output_parts.append(f"[过滤规则: {'; '.join(filter_info)}]")
         # 添加深度信息（如果depth > 0）
         if depth > 0:
             output_parts.append(f"[展开深度: {depth}层]")
@@ -310,6 +341,16 @@ DIRECTORY_TOOLS = [
                     "depth": {
                         "type": "integer",
                         "description": "展开目录的层数，默认值为0，代表全部展开，1代表只展开当前目录下一层，2代表展开两层，以此类推",
+                    },
+                    "blacklist": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "黑名单字符串数组，用于排除文件名中含有特定字符的项",
+                    },
+                    "whitelist": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "白名单字符串数组，用于仅保留文件名中含有特定字符的项",
                     }
                 },
                 "required": [],
