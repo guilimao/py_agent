@@ -63,20 +63,28 @@ class TerminalSession:
                     if not data:
                         break
                     
-                    # 检测编码并解码
-                    encoding = self._detect_encoding(data)
-                    try:
-                        text = data.decode(encoding, errors='replace')
-                    except (UnicodeDecodeError, LookupError):
-                        # 如果检测的编码失败，尝试常见编码
-                        for alt_encoding in ['utf-8', 'gbk', 'gb2312', 'latin-1']:
+                    # 根据操作系统使用固定的编码顺序解码
+                    text = None
+                    if os.name == 'nt':  # Windows 系统
+                        # Windows 优先尝试 GBK/GB2312，然后是 UTF-8
+                        for encoding in ['gbk', 'gb2312', 'utf-8', 'latin-1']:
                             try:
-                                text = data.decode(alt_encoding, errors='replace')
+                                text = data.decode(encoding, errors='strict')
                                 break
                             except UnicodeDecodeError:
                                 continue
-                        else:
-                            text = data.decode('latin-1', errors='ignore')
+                    else:  # Unix-like 系统
+                        # Linux/Mac 优先尝试 UTF-8
+                        for encoding in ['utf-8', 'gbk', 'gb2312', 'latin-1']:
+                            try:
+                                text = data.decode(encoding, errors='strict')
+                                break
+                            except UnicodeDecodeError:
+                                continue
+                    
+                    # 如果所有编码都失败，使用 latin-1 确保不丢失数据
+                    if text is None:
+                        text = data.decode('latin-1', errors='ignore')
                     
                     # 将输出按行分割并存储
                     lines = text.splitlines(keepends=True)
@@ -100,13 +108,14 @@ class TerminalSession:
         reader_thread = threading.Thread(target=read_output, daemon=True)
         reader_thread.start()
     
-    def _detect_encoding(self, data: bytes) -> str:
-        """使用chardet检测字节数据的编码"""
-        try:
-            detection = chardet.detect(data)
-            return detection['encoding'] or 'utf-8'
-        except Exception:
-            return 'utf-8'
+    # 已废弃，现在使用固定编码顺序解码
+    # def _detect_encoding(self, data: bytes) -> str:
+    #     """使用chardet检测字节数据的编码"""
+    #     try:
+    #         detection = chardet.detect(data)
+    #         return detection['encoding'] or 'utf-8'
+    #     except Exception:
+    #         return 'utf-8'
     
     def execute_command(self, command: str) -> bool:
         """在终端中执行命令"""
@@ -363,7 +372,7 @@ def execute_command(send: str = None, session_id: int = None, refresh: bool = Fa
 """
             
             # 短暂等待后继续检查
-            time.sleep(0.5)
+            time.sleep(5)
     
     except Exception as e:
         return f"❌ 执行命令时发生错误: {str(e)}"
@@ -389,7 +398,7 @@ COMMAND_TOOLS = [
                     },
                     "refresh": {
                         "type": "boolean",
-                        "description": "刷新状态（True时只返回最近输出，不执行命令）",
+                        "description": "检查终端状态（True时只返回最近输出，不执行命令）",
                         "default": False
                     }
                 },

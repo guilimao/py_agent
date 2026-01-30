@@ -140,7 +140,6 @@ class Agent:
             "messages": messages,
             "stream": True,
             "tools": TOOLS,
-            "max_tokens": 32000,
         }
         
         # 应用模型参数

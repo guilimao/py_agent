@@ -60,13 +60,12 @@
                 ]
             },
             {
-                "name": "qwen3-max",
+                "name": "qwen3-coder-480b-a35b-instruct",
                 "parameters": []
             },
             {
                 "name": "qwen3-vl-235b-a22b-thinking",
                 "parameters": [
-                    ["tools","Delete"],
                     ["extra_body", {
                         "vl_high_resolution_images": true,
                         "enable_thinking": false
@@ -140,11 +139,8 @@
         "sdk_name": "openai",
         "models": [
             {
-                "name": "kimi-k2-0905-preview",
-                "parameters": [
-                    ["max_tokens",200000],
-                    ["temperature",0.6]
-                ]
+                "name": "kimi-k2.5",
+                "parameters": []
             },
             {
                 "name": "kimi-k2-turbo-preview",
