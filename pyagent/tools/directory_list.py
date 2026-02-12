@@ -345,12 +345,12 @@ DIRECTORY_TOOLS = [
                     "blacklist": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "黑名单字符串数组，用于排除文件名中含有特定字符的项",
+                        "description": "黑名单，用于排除文件名中含有特定字符的项，可以用来滤除结果中无关的干扰项",
                     },
                     "whitelist": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "白名单字符串数组，用于仅保留文件名中含有特定字符的项",
+                        "description": "白名单，用于仅保留文件名中含有特定字符的项",
                     }
                 },
                 "required": [],

@@ -189,7 +189,7 @@ def safe_json_loads(text: str, default: Any = None) -> Any:
         return default
 
 
-def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
+def truncate_text(text: str, max_length: int = 1000, suffix: str = "...") -> str:
     """
     截断文本
     

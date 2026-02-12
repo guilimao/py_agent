@@ -75,7 +75,7 @@ class AnthropicAdapter(BaseLLMAdapter):
         anthropic_params = {}
         # 基本参数
         anthropic_params['model'] = openai_params.get('model', self.model_name)
-        anthropic_params['max_tokens'] = openai_params.get('max_tokens', 4096)
+        anthropic_params['max_tokens'] = openai_params.get('max_tokens', 120000)
         # 转换消息格式
         messages = openai_params.get('messages', [])
         anthropic_messages = []
