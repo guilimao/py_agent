@@ -137,11 +137,11 @@ class TerminalSession:
         except Exception:
             return False
     
-    def get_recent_output(self, count: int = 30) -> List[str]:
+    def get_recent_output(self, count: int = 200) -> List[str]:
         """获取最近的输出内容"""
         return self.output_lines[-count:] if len(self.output_lines) >= count else self.output_lines
     
-    def get_last_output(self, count: int = 20) -> List[str]:
+    def get_last_output(self, count: int = 200) -> List[str]:
         """获取上一条命令的最后输出"""
         return self.output_lines[-count:] if len(self.output_lines) >= count else self.output_lines
     

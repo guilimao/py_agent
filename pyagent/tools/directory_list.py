@@ -242,6 +242,7 @@ def list_directory(path: str = ".", depth: int = 0, blacklist: List[str] = None,
         total_files = 0
         ignored_dirs = 0
         ignored_files = 0
+        file_extensions = set()  # 用于收集文件类型
         try:
             for root, dirs, files in os.walk(abs_path):
                 # 计算相对于根目录的路径
@@ -272,6 +273,13 @@ def list_directory(path: str = ".", depth: int = 0, blacklist: List[str] = None,
                         filtered_files.append(file_name)
                 total_dirs += len(filtered_dirs)
                 total_files += len(filtered_files)
+                # 收集文件扩展名
+                for file_name in filtered_files:
+                    _, ext = os.path.splitext(file_name)
+                    if ext:
+                        file_extensions.add(ext.lower())
+                    else:
+                        file_extensions.add('(无扩展名)')
                 # 修改dirs列表，避免os.walk进入被忽略的目录
                 dirs[:] = filtered_dirs
         except (PermissionError, OSError):
@@ -292,11 +300,21 @@ def list_directory(path: str = ".", depth: int = 0, blacklist: List[str] = None,
         )
         # 截断输出以控制字符数
         tree_lines = _truncate_output(tree_lines, max_chars=1800)  # 留一些空间给标题和统计信息
+        # 构建文件类型信息
+        file_types_info = ""
+        if file_extensions:
+            sorted_extensions = sorted(file_extensions)
+            file_types_info = f"文件类型: {', '.join(sorted_extensions)}"
+        
         # 构建最终输出
         output_parts = [
             f"目录结构: {abs_path}",
             f"统计信息: {total_dirs}个文件夹, {total_files}个文件",
         ]
+        
+        # 添加文件类型信息
+        if file_types_info:
+            output_parts.append(file_types_info)
         # 添加.gitignore信息
         if gitignore_used:
             output_parts.append(f"[gitignore跳过了{ignored_dirs + ignored_files}个项: {ignored_dirs}个文件夹, {ignored_files}个文件]")

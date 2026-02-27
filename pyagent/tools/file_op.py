@@ -200,11 +200,18 @@ def find(
     在指定路径下查找文件或文件内容
     Args:
         search_path (str): 要查找的目录路径
-        file_name (Optional[str]): 文件名正则表达式，用于匹配文件名
+        file_name (Optional[str]): 文件名正则表达式，用于匹配文件名。启用内容匹配时，必须包含明确的扩展名（如 r'.*\.py$'）
         content (Optional[str]): 内容正则表达式，用于匹配文件内容
     Returns:
         符合匹配条件的文件路径列表
     """
+    # 当启用内容匹配时，强制要求指定文件扩展名
+    if content is not None:
+        if file_name is None:
+            return "查找失败：启用内容匹配时，必须通过 file_name 参数指定文件扩展名（如 r'.*\\.py$'）"
+        # 检查是否包含明确的扩展名限制（匹配 .ext 结尾的模式）
+        if not re.search(r'\\\.[a-zA-Z0-9_]+(\$|\\\b)', file_name):
+            return "查找失败：启用内容匹配时，file_name 必须包含明确的文件扩展名限制（如 r'.*\\.py$'、r'\\.txt$' 等）"
     try:
         abs_path = os.path.abspath(search_path)
         # 检查路径是否存在
@@ -612,7 +619,7 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "find",
-            "description": "在指定路径下按文件名或文件内容查找文件。支持正则表达式匹配文件名和内容",
+            "description": "在指定路径下按文件名或文件内容查找文件。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -622,11 +629,11 @@ FILE_TOOLS = [
                     },
                     "file_name": {
                         "type": "string",
-                        "description": "文件名正则表达式，用于匹配文件名（可选）",
+                        "description": "文件名正则表达式，用于匹配文件名。启用内容匹配时，必须在这里填写目标文件的扩展名（如 r'.*\\.py$'、r'\\.txt$'）",
                     },
                     "content": {
                         "type": "string",
-                        "description": "内容正则表达式，用于匹配文件内容（可选）",
+                        "description": "内容正则表达式，用于匹配文件内容。启用时必须在file_name中指定扩展名",
                     }
                 },
                 "required": ["search_path"],
@@ -666,7 +673,7 @@ FILE_TOOLS = [
         "type": "function",
         "function": {
             "name": "file_operation",
-            "description": "文件操作工具，提供复制、删除、移动功能。参数说明：1.文件路径1（源路径） 2.文件路径2（目标路径，删除操作时不使用） 3.功能参数（可选值：copy, delete, move） 4.强制选项（布尔值，默认为False）",
+            "description": "文件操作工具，提供复制、删除、移动功能。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -685,7 +692,7 @@ FILE_TOOLS = [
                     },
                     "force": {
                         "type": "boolean",
-                        "description": "强制选项，默认为False。复制/移动时，为True则覆盖重名文件；删除时，为True则删除整个目录",
+                        "description": "强制选项，当需要覆盖重名文件或删除整个目录时，需将该参数填写为True",
                         "default": False
                     }
                 },
