@@ -78,7 +78,8 @@
                 "parameters": [
                     ["extra_body", {
                         "enable_thinking": true
-                    }]
+                    }],
+                    ["temperature",1.99]
                 ]
             },
             {

@@ -215,17 +215,55 @@ class Agent:
                     
                     function_response = tool_func(**filtered_args)
                     
-                    # 添加工具返回结果到对话上下文
-                    self.conversation_manager.add_tool_result(tool_call_id, str(function_response))
-                    conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
-                    
-                    # 计算工具返回结果的token
-                    tool_result_tokens = self.token_counter.count_tokens(str(function_response))
-                    self.frontend.output("tool_result", str(function_response))
-                    self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
-                    
-                    # 累加工具结果的token
-                    tool_calls_tokens += tool_result_tokens
+                    # 检查返回值是否为图像类型（字典格式）
+                    if isinstance(function_response, dict) and function_response.get("type") == "image":
+                        # 图像类型的返回值
+                        image_data = function_response.get("data", "")
+                        filename = function_response.get("filename", "image")
+                        mime_type = function_response.get("mime_type", "image/jpeg")
+                        size = function_response.get("size", 0)
+                        
+                        # 构建文本描述
+                        text_content = f"图像文件: {filename} ({mime_type}, {size} bytes)"
+                        
+                        # 使用支持图像的方法添加工具结果
+                        self.conversation_manager.add_tool_result_with_image(
+                            tool_call_id, 
+                            text_content, 
+                            image_data
+                        )
+                        conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
+                        
+                        # 显示图像信息
+                        self.frontend.output("tool_result", f"[图像] {text_content}")
+                        self.frontend.output('info', f"📊 图像已添加到对话上下文")
+                        
+                        # 计算token（图像的token计算较为复杂，这里用描述文本的token作为参考）
+                        tool_result_tokens = self.token_counter.count_tokens(text_content)
+                        tool_calls_tokens += tool_result_tokens
+                        
+                    elif isinstance(function_response, dict) and function_response.get("type") == "error":
+                        # 错误类型的返回值
+                        error_message = function_response.get("message", "未知错误")
+                        self.conversation_manager.add_tool_result(tool_call_id, f"[错误] {error_message}")
+                        conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
+                        
+                        tool_result_tokens = self.token_counter.count_tokens(error_message)
+                        self.frontend.output("tool_result", f"[错误] {error_message}")
+                        self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
+                        tool_calls_tokens += tool_result_tokens
+                        
+                    else:
+                        # 普通文本返回值
+                        response_str = str(function_response)
+                        self.conversation_manager.add_tool_result(tool_call_id, response_str)
+                        conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
+                        
+                        # 计算工具返回结果的token
+                        tool_result_tokens = self.token_counter.count_tokens(response_str)
+                        self.frontend.output("tool_result", response_str)
+                        self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
+                        tool_calls_tokens += tool_result_tokens
                     
                 except Exception as e:
                     self.frontend.output('error', f"❌ 工具执行失败：{function_name} - {str(e)}")

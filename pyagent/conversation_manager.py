@@ -108,6 +108,39 @@ class ConversationManager:
             timestamp=datetime.now().isoformat()
         ))
     
+    def add_tool_result_with_image(self, tool_call_id: str, text_content: str, image_data_url: str):
+        """
+        添加包含图像的工具结果
+        
+        Args:
+            tool_call_id: 工具调用ID
+            text_content: 文本内容描述
+            image_data_url: base64编码的图像数据URL (data:image/jpeg;base64,...)
+        """
+        content_parts = []
+        
+        # 添加文本内容
+        if text_content:
+            content_parts.append({
+                "type": "text",
+                "text": text_content
+            })
+        
+        # 添加图像内容
+        content_parts.append({
+            "type": "image_url",
+            "image_url": {
+                "url": image_data_url
+            }
+        })
+        
+        self.messages.append(Message(
+            role=MessageRole.TOOL,
+            content_parts=content_parts,
+            tool_call_id=tool_call_id,
+            timestamp=datetime.now().isoformat()
+        ))
+    
     def get_messages_for_sdk(self) -> List[Dict[str, Any]]:
         """获取适配SDK的消息格式"""
         messages = [msg.to_dict() for msg in self.messages]
