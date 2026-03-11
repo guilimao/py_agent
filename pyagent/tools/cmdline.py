@@ -108,15 +108,6 @@ class TerminalSession:
         reader_thread = threading.Thread(target=read_output, daemon=True)
         reader_thread.start()
     
-    # 已废弃，现在使用固定编码顺序解码
-    # def _detect_encoding(self, data: bytes) -> str:
-    #     """使用chardet检测字节数据的编码"""
-    #     try:
-    #         detection = chardet.detect(data)
-    #         return detection['encoding'] or 'utf-8'
-    #     except Exception:
-    #         return 'utf-8'
-    
     def execute_command(self, command: str) -> bool:
         """在终端中执行命令"""
         if not self.is_running or not self.process:

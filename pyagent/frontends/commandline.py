@@ -64,6 +64,13 @@ class CommandlineFrontend(FrontendInterface):
             if "result" in kwargs:
                 print(f"\033[90m工具返回结果：{kwargs['result']}\033[0m")
         
+        # 警告信息 - 黄色
+        elif message_type == "warning":
+            if self.thinking_mode:
+                print("\033[0m", end="")  # 确保重置颜色
+                self.thinking_mode = False
+            print(f"\n\033[93m{content}\033[0m")
+        
         # 错误信息 - 红色
         elif message_type == "error":
             if self.thinking_mode:

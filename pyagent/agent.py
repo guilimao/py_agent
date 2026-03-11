@@ -173,6 +173,23 @@ class Agent:
             f"📊 输入token总量: {total_input_tokens} tokens  "
             f"📊 输出token总量: {total_output_tokens} tokens")
 
+    def _display_tool_params(self, function_name: str, function_args: dict) -> None:
+        """显示工具调用的参数信息，每个参数值限制50字"""
+        if not function_args:
+            self.frontend.output('tool_progress', f"    参数: (无)\n")
+            return
+        
+        param_lines = []
+        for key, value in function_args.items():
+            # 将值转换为字符串并截断到50字
+            value_str = str(value)
+            if len(value_str) > 50:
+                value_str = value_str[:50] + "..."
+            param_lines.append(f"    • {key}: {value_str}")
+        
+        params_text = "\n".join(param_lines)
+        self.frontend.output('tool_progress', f"    参数:\n{params_text}\n")
+
     def _execute_tool_calls(self, tool_calls: list) -> int:
         """执行工具调用，返回工具调用的token消耗"""
         self.frontend.output('info', "\n工具参数接收完成，开始执行...")
@@ -198,6 +215,9 @@ class Agent:
             
             if function_name in TOOL_FUNCTIONS:
                 try:
+                    # 显示工具调用参数信息（每个参数值限制50字）
+                    self._display_tool_params(function_name, function_args)
+                    
                     # 获取工具函数的实际参数签名
                     import inspect
                     tool_func = TOOL_FUNCTIONS[function_name]
@@ -261,7 +281,17 @@ class Agent:
                         
                         # 计算工具返回结果的token
                         tool_result_tokens = self.token_counter.count_tokens(response_str)
-                        self.frontend.output("tool_result", response_str)
+                        
+                        # 对read_file工具的返回值进行特殊处理，仅显示前10行
+                        if function_name == "read_file":
+                            display_lines = response_str.split('\n')[:10]
+                            display_str = '\n'.join(display_lines)
+                            if len(response_str.split('\n')) > 10:
+                                display_str += f"\n... (仅显示前10行，共{len(response_str.split('\n'))}行)"
+                            self.frontend.output("tool_result", display_str)
+                        else:
+                            self.frontend.output("tool_result", response_str)
+                        
                         self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
                         tool_calls_tokens += tool_result_tokens
                     
