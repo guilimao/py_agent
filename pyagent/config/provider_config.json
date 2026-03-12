@@ -196,7 +196,7 @@
         "sdk_name": "openai",
         "models": [
             {
-                "name": "moonshotai/kimi-k2.5",
+                "name": "openrouter/hunter-alpha",
                 "parameters": [
                     ["temperature",1.0]
                 ]

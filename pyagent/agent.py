@@ -3,7 +3,6 @@ from .tools import TOOL_FUNCTIONS, TOOLS
 from .token_counter import TokenCounter
 from .frontends.image_handler import ImageHandler
 from . import conversation_saver
-from .context_compressor import ContextCompressor
 from .llm_adapter import UnifiedLLMClient
 from .conversation_manager import ConversationManager, StreamResponseHandler
 import json_repair
@@ -25,8 +24,6 @@ class Agent:
         self.model_name = model_name
         self.model_parameters = model_parameters or []
         self.token_counter = TokenCounter(model_name)
-        self.context_compressor = ContextCompressor(keep_recent_rounds=2)
-        
         # 设置系统初始token（系统提示+工具定义）
         from .tools import TOOLS
         self.token_counter.set_initial_tokens(system_prompt, TOOLS)

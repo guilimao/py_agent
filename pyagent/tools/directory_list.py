@@ -14,6 +14,7 @@ class Node:
     depth: int
     parent_id: int
     children_ids: List[int] = field(default_factory=list)
+    is_filtered: bool = False  # 新增：是否被过滤，默认为否
 
 
 def translate_gitignore_to_regex(pattern: str) -> Pattern:
@@ -200,91 +201,65 @@ def list_directory(path: str = ".", depth: int = 0,
             queue.append(node)
             next_id += 1
 
-    # 编译白名单为正则表达式
-    whitelist_patterns = [translate_gitignore_to_regex(w) for w in whitelist]
-    
-    # 白名单过滤
-    if whitelist_patterns:
-        file_nodes = [n for n in nodes.values() if n.is_file]
-        for fn in file_nodes:
-            full_name = fn.name + ('.' + fn.suffix if fn.suffix else '')
-            # 获取相对路径用于匹配
-            relative_path = '/'.join(get_relative_parts(nodes, fn.id))
-            # 检查是否匹配任意白名单模式（匹配文件名或相对路径）
-            is_whitelisted = any(
-                pattern.search(full_name) or pattern.search(relative_path)
-                for pattern in whitelist_patterns
-            )
-            if not is_whitelisted:
-                del nodes[fn.id]
-                if fn.parent_id in nodes:
-                    nodes[fn.parent_id].children_ids.remove(fn.id)
-        dir_ids = sorted([n.id for n in nodes.values() if not n.is_file], reverse=True)
-        for did in dir_ids:
-            if did == 1:
-                continue
-            node = nodes[did]
-            full_name = node.name
-            relative_path = '/'.join(get_relative_parts(nodes, did))
-            is_whitelisted = any(
-                pattern.search(full_name) or pattern.search(relative_path)
-                for pattern in whitelist_patterns
-            )
-            if not is_whitelisted and not node.children_ids:
-                del nodes[did]
-                if node.parent_id in nodes:
-                    nodes[node.parent_id].children_ids.remove(did)
-
     # 编译黑名单为正则表达式
     blacklist_patterns = [translate_gitignore_to_regex(b) for b in blacklist]
     
-    # 黑名单过滤
+    # 黑名单过滤：将匹配的节点的 is_filtered 设为 True
     blacklisted_file_count = 0
     blacklisted_folder_count = 0
     if blacklist_patterns:
-        to_remove = set()
-        queue = [1]
-        while queue:
-            curr_id = queue.pop(0)
-            if curr_id not in nodes:
-                continue
-            curr = nodes[curr_id]
-            full_name = curr.name + ('.' + curr.suffix if curr.suffix else '')
-            relative_path = '/'.join(get_relative_parts(nodes, curr_id))
+        for node in nodes.values():
+            full_name = node.name + ('.' + node.suffix if node.suffix else '')
+            relative_path = '/'.join(get_relative_parts(nodes, node.id))
             # 检查是否匹配任意黑名单模式（匹配文件名或相对路径）
             is_blacklisted = any(
                 pattern.search(full_name) or pattern.search(relative_path)
                 for pattern in blacklist_patterns
             )
             if is_blacklisted:
-                to_remove.add(curr_id)
-                if curr.is_file:
+                node.is_filtered = True
+                if node.is_file:
                     blacklisted_file_count += 1
                 else:
                     blacklisted_folder_count += 1
-            else:
-                queue.extend(curr.children_ids)
-        for rid in sorted(to_remove, reverse=True):
-            if rid in nodes:
-                node = nodes[rid]
-                if node.parent_id in nodes:
-                    nodes[node.parent_id].children_ids.remove(rid)
-                del nodes[rid]
 
-    # 深度调整（字符量检查）
-    max_actual_depth = max((n.depth for n in nodes.values()), default=0)
+    # 编译白名单为正则表达式
+    whitelist_patterns = [translate_gitignore_to_regex(w) for w in whitelist]
+    
+    # 白名单过滤：将匹配的节点的 is_filtered 设为 False（恢复），未匹配的设为 True
+    if whitelist_patterns:
+        for node in nodes.values():
+            full_name = node.name + ('.' + node.suffix if node.suffix else '')
+            relative_path = '/'.join(get_relative_parts(nodes, node.id))
+            # 检查是否匹配任意白名单模式（匹配文件名或相对路径）
+            is_whitelisted = any(
+                pattern.search(full_name) or pattern.search(relative_path)
+                for pattern in whitelist_patterns
+            )
+            if is_whitelisted:
+                # 匹配的节点恢复（取消过滤）
+                node.is_filtered = False
+            else:
+                # 未匹配的节点标记为过滤
+                node.is_filtered = True
+
+    # 深度调整（字符量检查）：只看未被过滤的节点
+    unfiltered_nodes = [n for n in nodes.values() if not n.is_filtered]
+    max_actual_depth = max((n.depth for n in unfiltered_nodes), default=0)
     original_depth = depth if depth > 0 else max_actual_depth
     effective_depth = original_depth
     depth_adjusted = False
     while effective_depth > 0:
-        total_chars = sum(len(n.name) + len(n.suffix) + (1 if n.suffix else 0) for n in nodes.values() if n.depth <= effective_depth)
+        total_chars = sum(len(n.name) + len(n.suffix) + (1 if n.suffix else 0) 
+                         for n in unfiltered_nodes if n.depth <= effective_depth)
         if total_chars <= 2000:
             break
         effective_depth -= 1
         depth_adjusted = True
 
-    # 按有效深度过滤节点
-    filtered_nodes = {nid: n for nid, n in nodes.items() if n.depth <= effective_depth}
+    # 按有效深度过滤节点（只保留未过滤且在有效深度内的节点）
+    filtered_nodes = {nid: n for nid, n in nodes.items() 
+                      if not n.is_filtered and n.depth <= effective_depth}
     for n in filtered_nodes.values():
         n.children_ids = [cid for cid in n.children_ids if cid in filtered_nodes]
 
@@ -330,9 +305,9 @@ def list_directory(path: str = ".", depth: int = 0,
         else:
             info_lines.append(f"{original_depth}层目录内容过多，只展开前{effective_depth}层")
     
-    # 统计所有出现过的文件后缀类型（基于原始扫描的完整节点树，帮助用户使用黑白名单）
+    # 统计所有出现过的文件后缀类型（基于未过滤的节点）
     suffix_set = set()
-    for n in nodes.values():
+    for n in filtered_nodes.values():
         if n.is_file and n.suffix:
             suffix_set.add(n.suffix)
     if suffix_set:
