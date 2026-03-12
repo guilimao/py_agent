@@ -239,6 +239,8 @@ def list_directory(path: str = ".", depth: int = 0,
     blacklist_patterns = [translate_gitignore_to_regex(b) for b in blacklist]
     
     # 黑名单过滤
+    blacklisted_file_count = 0
+    blacklisted_folder_count = 0
     if blacklist_patterns:
         to_remove = set()
         queue = [1]
@@ -256,6 +258,10 @@ def list_directory(path: str = ".", depth: int = 0,
             )
             if is_blacklisted:
                 to_remove.add(curr_id)
+                if curr.is_file:
+                    blacklisted_file_count += 1
+                else:
+                    blacklisted_folder_count += 1
             else:
                 queue.extend(curr.children_ids)
         for rid in sorted(to_remove, reverse=True):
@@ -266,12 +272,16 @@ def list_directory(path: str = ".", depth: int = 0,
                 del nodes[rid]
 
     # 深度调整（字符量检查）
-    effective_depth = depth if depth > 0 else max((n.depth for n in nodes.values()), default=0)
+    max_actual_depth = max((n.depth for n in nodes.values()), default=0)
+    original_depth = depth if depth > 0 else max_actual_depth
+    effective_depth = original_depth
+    depth_adjusted = False
     while effective_depth > 0:
         total_chars = sum(len(n.name) + len(n.suffix) + (1 if n.suffix else 0) for n in nodes.values() if n.depth <= effective_depth)
         if total_chars <= 2000:
             break
         effective_depth -= 1
+        depth_adjusted = True
 
     # 按有效深度过滤节点
     filtered_nodes = {nid: n for nid, n in nodes.items() if n.depth <= effective_depth}
@@ -300,6 +310,39 @@ def list_directory(path: str = ".", depth: int = 0,
             build_tree(child.id, prefix + extension, is_last_child)
 
     build_tree(1)
+    
+    # 添加黑名单过滤统计信息
+    info_lines = []
+    if blacklisted_file_count > 0 or blacklisted_folder_count > 0:
+        filter_info = []
+        if blacklisted_folder_count > 0:
+            filter_info.append(f"{blacklisted_folder_count}个文件夹")
+        if blacklisted_file_count > 0:
+            filter_info.append(f"{blacklisted_file_count}个文件")
+        info_lines.append(f"已过滤：{'、'.join(filter_info)}")
+    
+    # 添加深度调整说明
+    if depth_adjusted:
+        if effective_depth == 0:
+            info_lines.append("路径下方内容过多，请使用黑白名单功能进行过滤")
+        elif depth == 0:
+            info_lines.append(f"内容过多，只展开前{effective_depth}层")
+        else:
+            info_lines.append(f"{original_depth}层目录内容过多，只展开前{effective_depth}层")
+    
+    # 统计所有出现过的文件后缀类型（基于原始扫描的完整节点树，帮助用户使用黑白名单）
+    suffix_set = set()
+    for n in nodes.values():
+        if n.is_file and n.suffix:
+            suffix_set.add(n.suffix)
+    if suffix_set:
+        suffix_list = sorted(suffix_set, key=str.lower)
+        info_lines.append(f"文件类型：{suffix_list}")
+
+    if info_lines:
+        lines.append("")
+        lines.append(f"{'\n'.join(info_lines)}")
+
     return "\n".join(lines)
 
 
@@ -321,7 +364,7 @@ DIRECTORY_TOOLS = [
         "type": "function",
         "function": {
             "name": "list_directory",
-            "description": "列出目录的树状结构。当同一层级项目过多时，总输出量控制在2000字符内。默认会自动跳过 .git 文件夹。如果目录中存在.gitignore文件，将自动跳过其中指定的文件和目录。",
+            "description": "列出目录的树状结构。当同一层级项目过多时，总输出量控制在2000字符内。如果目录中存在.gitignore文件，将自动跳过其中指定的文件和目录。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -336,12 +379,12 @@ DIRECTORY_TOOLS = [
                     "blacklist": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "黑名单，用于排除文件名中含有特定字符的项，可以用来滤除结果中无关的干扰项",
+                        "description": "黑名单，用于排除文件名中含有特定字符的项，可以用来滤除结果中无关的干扰项，默认值为.git文件夹",
                     },
                     "whitelist": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "白名单，用于仅保留文件名中含有特定字符的项",
+                        "description": "白名单，用于仅保留文件名中含有特定字符的项，可用于在目录下查找指定文件",
                     }
                 },
                 "required": [],

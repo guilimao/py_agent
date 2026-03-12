@@ -191,133 +191,6 @@ def write_file(file_name: str, file_content: Union[str, Dict, List]) -> str:
         return f"JSON序列化错误：无法将内容转换为JSON字符串 - {str(e)}"
     except Exception as e:
         return f"创建/修改文件时发生错误：{str(e)}"
-def find(
-    search_path: str,
-    file_name: Optional[str] = None,
-    content: Optional[str] = None
-) -> str:
-    """
-    在指定路径下查找文件或文件内容
-    Args:
-        search_path (str): 要查找的目录路径
-        file_name (Optional[str]): 文件名正则表达式，用于匹配文件名。启用内容匹配时，必须包含明确的扩展名（如 r'.*\.py$'）
-        content (Optional[str]): 内容正则表达式，用于匹配文件内容
-    Returns:
-        符合匹配条件的文件路径列表
-    """
-    # 当启用内容匹配时，强制要求指定文件扩展名
-    if content is not None:
-        if file_name is None:
-            return "查找失败：启用内容匹配时，必须通过 file_name 参数指定文件扩展名（如 r'.*\\.py$'）"
-        # 检查是否包含明确的扩展名限制（匹配 .ext 结尾的模式）
-        if not re.search(r'\\\.[a-zA-Z0-9_]+(\$|\\\b)', file_name):
-            return "查找失败：启用内容匹配时，file_name 必须包含明确的文件扩展名限制（如 r'.*\\.py$'、r'\\.txt$' 等）"
-    try:
-        abs_path = os.path.abspath(search_path)
-        # 检查路径是否存在
-        if not os.path.exists(abs_path):
-            return f"查找失败：路径不存在 - {abs_path}"
-        if not os.path.isdir(abs_path):
-            return f"查找失败：路径不是目录 - {abs_path}"
-        # 检查是否存在.gitignore文件
-        gitignore_path = os.path.join(abs_path, '.gitignore')
-        is_ignored = None
-        if os.path.exists(gitignore_path):
-            is_ignored = _parse_gitignore(gitignore_path)
-        # 编译正则表达式（如果提供）
-        file_name_pattern = re.compile(file_name) if file_name else None
-        content_pattern = re.compile(content) if content else None
-        matching_files = []
-        ignored_count = 0
-        # 遍历目录
-        for root, _, files in os.walk(abs_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-                # 计算相对于搜索目录的路径
-                rel_path = os.path.relpath(file_path, abs_path)
-                # 检查是否被.gitignore忽略
-                if is_ignored and is_ignored(rel_path):
-                    ignored_count += 1
-                    continue
-                # 检查文件名是否匹配
-                if file_name_pattern:
-                    if not file_name_pattern.search(rel_path):
-                        continue
-                # 如果需要匹配内容
-                if content_pattern:
-                    file_content = _read_file_with_encoding(file_path)
-                    # 跳过读取失败的文件
-                    if file_content.startswith("[") and "读取文件失败" in file_content:
-                        continue
-                    if not content_pattern.search(file_content):
-                        continue
-                # 如果通过了所有条件，添加到结果
-                matching_files.append(file_path)
-        # 构建结果字符串
-        if not matching_files:
-            result_msg = f"在 {abs_path} 中未找到匹配的文件"
-            if ignored_count > 0:
-                result_msg += f"\n[gitignore忽略了{ignored_count}个文件]"
-            return result_msg
-        # 处理输出限制
-        # 如果只有一个结果，完整输出
-        if len(matching_files) == 1:
-            result_lines = [f"在 {abs_path} 中找到 1 个匹配文件:"]
-            for file_path in sorted(matching_files):
-                result_lines.append(f"  {file_path}")
-            result_text = "\n".join(result_lines)
-        else:
-            # 如果有多个结果，检查总长度
-            # 首先构建完整的输出
-            result_lines = [f"在 {abs_path} 中找到 {len(matching_files)} 个匹配文件:"]
-            for file_path in sorted(matching_files):
-                result_lines.append(f"  {file_path}")
-            full_output = "\n".join(result_lines)
-            # 如果总长度小于等于1000个字符，返回完整输出
-            if len(full_output) <= 1000:
-                result_text = full_output
-            else:
-                # 如果超过1000个字符，需要截断
-                # 先计算标题行长度（包括换行符）
-                title_line = result_lines[0] + "\n"
-                title_length = len(title_line)
-                # 计算剩余可用长度
-                remaining_length = 1000 - title_length - 50  # 留50个字符给省略信息
-                # 收集部分文件
-                displayed_files = []
-                current_length = 0
-                for i, file_path in enumerate(sorted(matching_files)):
-                    file_line = f"  {file_path}\n"
-                    line_length = len(file_line)
-                    # 如果添加这一行会超过限制，停止添加
-                    if current_length + line_length > remaining_length:
-                        # 检查是否至少显示了一个文件
-                        if not displayed_files:
-                            # 如果连一个文件都显示不了，至少显示第一个
-                            displayed_files.append(file_line.rstrip())
-                            truncated = True
-                        else:
-                            truncated = True
-                        break
-                    displayed_files.append(file_line.rstrip())
-                    current_length += line_length
-                    truncated = False
-                # 构建最终输出
-                output_lines = [f"在 {abs_path} 中找到 {len(matching_files)} 个匹配文件:"]
-                output_lines.extend(displayed_files)
-                # 添加省略信息
-                if truncated:
-                    displayed_count = len(displayed_files)
-                    output_lines.append(f"  ... (仅显示前{displayed_count}个文件，共{len(matching_files)}个)")
-                result_text = "\n".join(output_lines)
-        # 添加.gitignore忽略统计信息
-        if ignored_count > 0:
-            result_text += f"\n[gitignore忽略了{ignored_count}个文件]"
-        return result_text
-    except re.error as e:
-        return f"查找失败：正则表达式错误 - {str(e)}"
-    except Exception as e:
-        return f"查找失败：{str(e)}"
 def replace(
     file_path: str,
     replacements: list,
@@ -618,31 +491,6 @@ FILE_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "find",
-            "description": "在指定路径下按文件名或文件内容查找文件。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "search_path": {
-                        "type": "string",
-                        "description": "要查找的目录路径",
-                    },
-                    "file_name": {
-                        "type": "string",
-                        "description": "文件名正则表达式，用于匹配文件名。启用内容匹配时，必须在这里填写目标文件的扩展名（如 r'.*\\.py$'、r'\\.txt$'）",
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "内容正则表达式，用于匹配文件内容。启用时必须在file_name中指定扩展名",
-                    }
-                },
-                "required": ["search_path"],
-            },
-        }
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "replace",
             "description": "在文件中查找并替换文本内容，可以在replacement前后附带一些原始文本，作为插入编辑使用",
             "parameters": {
@@ -705,6 +553,5 @@ FILE_FUNCTIONS = {
     "read_file": read_file,
     "write_file": write_file,
     "replace": replace,
-    "find": find,
     "file_operation": file_operation
 }
