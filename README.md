@@ -1,10 +1,6 @@
 PyAgent
 
-一个使用 Python 构建的命令行 LLM 智能体示例。
-
-## 概述
-
-PyAgent 是一个用 Python 实现的命令行 LLM（大语言模型）智能体。本项目演示了如何构建一个能够处理自然语言命令并执行各种任务的交互式智能体，支持通过命令行参数灵活指定 LLM 模型。
+一个使用 Python 构建的命令行 LLM 智能体。
 
 ## 功能特性
 
@@ -12,58 +8,43 @@ PyAgent 是一个用 Python 实现的命令行 LLM（大语言模型）智能体
 - 自然语言处理能力
 - 视觉模型支持
 - 可扩展的架构，便于添加新功能
-- 灵活的模型指定：通过命令行参数选择不同的 LLM 模型（支持火山引擎、DeepSeek 等多个提供商）
 
 ## 安装
 
-### 通过 pip 安装（推荐）
+### 通过 uv 安装
 ```bash
-pip install .
-```
-
-### 开发模式安装
-```bash
-pip install -e .
+uv sync
+uv tool install -e .
 ```
 
 ## 使用方法
 
 ### 环境配置
-1. 安装项目（如上所述）
+
+1. 将可执行文件目录添加到环境变量
+
+对于Windows系统，在path中新建一条：
+```path
+%LOCALAPPDATA%\uv\tools\bin
+```
+
+对于Linux系统，将以下命令添加到Shell配置文件末尾（~/.bashrc 或 ~/.zshrc），然后重启终端
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+随后可以在任意路径下使用该命令启动它：
+
+```bash
+pyagent
+```
 
 2. 配置 API 密钥：
    - 不同的模型需要将相应提供商的 API 密钥配置在环境变量中（参考 `config/provider_config.json` 中的命名格式）
 
-### 启动智能体
 ```bash
-pyagent [--model model_name]
+export OPENROUTER_API_KEY="sk-......"
 ```
-
-参数说明：
-- `--model`（可选）：指定要使用的 LLM 模型名称
-- 可用模型必须与 `config/provider_config.json` 中配置的提供商支持的模型列表相匹配
-- 您可以按照 `config/provider_config.json` 中的格式添加您想要的模型提供商和模型名称
-
-
-## 路线图
-
-### 里程碑
-
-- [x] 多轮对话支持
-- [x] 流式输出能力
-- [x] 工具调用支持
-- [x] 通过命令行指定模型
-- [x] 视觉模型支持
-
-### 工具调用功能
-
-- [x] 文件操作
-  - [x] 文件读取
-  - [x] 目录列表
-  - [x] 文件创建/修改/删除
-  - [x] 文件路径权限控制
-  - [x] 大文件的差异化修改
-  - [ ] ...（更多文件操作）
 
 ## 致谢
 

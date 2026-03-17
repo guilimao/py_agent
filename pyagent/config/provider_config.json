@@ -215,11 +215,8 @@
                 ]
             },
             {
-                "name": "meta-llama/llama-4-maverick",
-                "parameters": [
-                    ["tools","Delete"],
-                    ["max_tokens",64000]
-                ]
+                "name": "inception/mercury-2",
+                "parameters": []
             },
             {
                 "name": "anthropic/claude-opus-4.6",
