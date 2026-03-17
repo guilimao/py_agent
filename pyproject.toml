@@ -12,7 +12,8 @@ dependencies = [
     "prompt-toolkit (>=3.0.52)",
     "chardet (>=5.2.0)",
     "json-repair (>=0.50.0)",
-    "tiktoken (>=0.11.0)"
+    "tiktoken (>=0.11.0)",
+    "httpx[socks] (>=0.28.0)"
 ]
 
 
