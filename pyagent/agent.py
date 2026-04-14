@@ -1,5 +1,6 @@
 from .frontends import FrontendInterface
 from .tools import TOOL_FUNCTIONS, TOOLS
+from .tools.handoff import HandoffSignal
 from .token_counter import TokenCounter
 from .frontends.image_handler import ImageHandler
 from . import conversation_saver
@@ -16,17 +17,23 @@ class Agent:
         frontend: FrontendInterface, 
         system_prompt: str, 
         model_name: str,
-        model_parameters: list = None
+        model_parameters: list = None,
+        token_counter: TokenCounter = None
     ):
         self.client = client
         self.frontend = frontend
         self.conversation_manager = ConversationManager(system_prompt)
         self.model_name = model_name
         self.model_parameters = model_parameters or []
-        self.token_counter = TokenCounter(model_name)
-        # 设置系统初始token（系统提示+工具定义）
-        from .tools import TOOLS
-        self.token_counter.set_initial_tokens(system_prompt, TOOLS)
+        
+        # 如果传入了token_counter，则继承使用；否则创建新的
+        if token_counter is not None:
+            self.token_counter = TokenCounter(model_name, inherit_from=token_counter)
+        else:
+            self.token_counter = TokenCounter(model_name)
+            # 设置系统初始token（系统提示+工具定义）
+            from .tools import TOOLS
+            self.token_counter.set_initial_tokens(system_prompt, TOOLS)
         
         # 系统提示将在有实际用户输入后再保存，避免保存空对话
         
@@ -71,11 +78,92 @@ class Agent:
                 # 处理对话循环（可能包含工具调用）
                 self._process_conversation_round(total_input_tokens, total_output_tokens)
 
+        except HandoffSignal as handoff:
+            # 处理交接信号：创建新Agent并继续运行
+            self._handle_handoff(handoff)
         except Exception as e:
             self.frontend.output('error', f"发生错误: {str(e)}")
         finally:
             # 程序结束时恢复终端颜色为默认值
             self.frontend.end_session()
+    
+    def _handle_handoff(self, handoff: HandoffSignal):
+        """处理交接信号，创建新Agent并继续运行"""
+        self.frontend.output('info', f"\n{'='*60}")
+        self.frontend.output('info', f"🔄 AGENT交接中...")
+        self.frontend.output('info', f"{'='*60}")
+        self.frontend.output('info', f"任务: {handoff.task[:100]}..." if len(handoff.task) > 100 else f"任务: {handoff.task}")
+        self.frontend.output('info', f"{'='*60}\n")
+        
+        # 计算交接前的token统计
+        handoff_before_tokens = self.token_counter.total_stats['total_tokens']
+        
+        # 创建新的Agent实例，使用相同的配置，并继承token计数器
+        new_agent = Agent(
+            client=self.client,
+            frontend=self.frontend,
+            system_prompt=self.conversation_manager.system_prompt,
+            model_name=self.model_name,
+            model_parameters=self.model_parameters,
+            token_counter=self.token_counter  # 传递当前token计数器，保持统计连续性
+        )
+        
+        # 显示继承的token统计
+        self.frontend.output('info', f"📊 已继承历史Token统计: {handoff_before_tokens} tokens")
+        
+        # 构建交接消息：包含历史需求、背景信息和当前任务
+        handoff_message = handoff.user_prompt
+        
+        # 创建图像内容（交接消息是纯文本，不需要图像处理）
+        content_parts = [{"type": "text", "text": handoff_message}]
+        
+        # 直接设置新Agent的第一条用户消息（不通过get_input）
+        new_agent.conversation_manager.add_user_message(handoff_message, content_parts)
+        
+        # 保存系统消息和用户消息
+        system_message = new_agent.conversation_manager.get_system_message()
+        if system_message:
+            conversation_saver.save_conversation([system_message], new_agent.session_id)
+        conversation_saver.save_conversation([new_agent.conversation_manager.get_last_message()], new_agent.session_id)
+        
+        # 计算并显示交接消息的token
+        handoff_message_tokens = new_agent.token_counter.count_tokens(handoff_message)
+        self.frontend.output('info', f"📊 交接消息: {handoff_message_tokens} tokens")
+        
+        # 启动新Agent的对话处理循环
+        try:
+            total_input_tokens = 0
+            total_output_tokens = 0
+            
+            while True:
+                # 处理对话循环（可能包含工具调用）
+                new_agent._process_conversation_round(total_input_tokens, total_output_tokens)
+                
+                # 继续获取用户输入
+                user_input, has_input = self.frontend.get_input()
+                if not has_input or user_input.lower() == '退出':
+                    break
+                
+                # 处理用户输入，提取图像
+                clean_text, content_parts = ImageHandler.process_user_input(user_input)
+                
+                # 统计图像数量
+                image_count = len([part for part in content_parts if part.get("type") == "image_url"])
+                
+                # 添加用户输入到对话上下文
+                new_agent.conversation_manager.add_user_message(clean_text, content_parts)
+                conversation_saver.save_conversation([new_agent.conversation_manager.get_last_message()], new_agent.session_id)
+
+                # 计算输入token总数
+                user_tokens = new_agent.token_counter.count_tokens(clean_text)
+                image_info = f" 已添加图像: {image_count}张" if image_count > 0 else ""
+                self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens{image_info}")
+                
+        except HandoffSignal as next_handoff:
+            # 如果新Agent也触发交接，递归处理
+            new_agent._handle_handoff(next_handoff)
+        except Exception as e:
+            self.frontend.output('error', f"新Agent发生错误: {str(e)}")
 
     def _process_conversation_round(self, total_input_tokens: int, total_output_tokens: int):
         """处理一轮对话（可能包含多个工具调用）"""
@@ -186,7 +274,7 @@ class Agent:
         
         params_text = "\n".join(param_lines)
         self.frontend.output('tool_progress', f"    参数:\n{params_text}\n")
-
+        
     def _execute_tool_calls(self, tool_calls: list) -> int:
         """执行工具调用，返回工具调用的token消耗"""
         self.frontend.output('info', "\n工具参数接收完成，开始执行...")
@@ -232,7 +320,7 @@ class Agent:
                     
                     function_response = tool_func(**filtered_args)
                     
-                    # 检查返回值是否为图像类型（字典格式）
+                    # 处理正常返回值（图像/错误/文本）
                     if isinstance(function_response, dict) and function_response.get("type") == "image":
                         # 图像类型的返回值
                         image_data = function_response.get("data", "")
@@ -292,10 +380,22 @@ class Agent:
                         self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
                         tool_calls_tokens += tool_result_tokens
                     
+                except HandoffSignal as handoff:
+                    # 捕获交接信号，终止当前Agent并传播信号
+                    self.frontend.output('info', f"\n🔄 接收到交接信号，准备启动新Agent...")
+                    raise handoff
+                    
                 except Exception as e:
+                    # 其他异常：添加错误信息作为 tool result
                     self.frontend.output('error', f"❌ 工具执行失败：{function_name} - {str(e)}")
+                    self.conversation_manager.add_tool_result(tool_call_id, f"[错误] {str(e)}")
+                    conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
+                    tool_result_tokens = self.token_counter.count_tokens(str(e))
+                    tool_calls_tokens += tool_result_tokens
             else:
                 self.frontend.output('error', f"❌ 未找到工具函数：{function_name}")
         
         self.frontend.output('info', f"📊 调用请求输出token量: {tool_calls_tokens}")
         return tool_calls_tokens
+
+        

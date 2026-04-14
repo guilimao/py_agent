@@ -226,22 +226,27 @@ def list_directory(path: str = ".", depth: int = 0,
     # 编译白名单为正则表达式
     whitelist_patterns = [translate_gitignore_to_regex(w) for w in whitelist]
     
-    # 白名单过滤：将匹配的节点的 is_filtered 设为 False（恢复），未匹配的设为 True
+    # 白名单过滤：将已被黑名单过滤且匹配白名单的节点恢复（取消过滤）
+    # .gitignore 中 ! 模式的语义是：从被过滤的项中恢复，而不是"只允许这些项"
     if whitelist_patterns:
         for node in nodes.values():
-            full_name = node.name + ('.' + node.suffix if node.suffix else '')
-            relative_path = '/'.join(get_relative_parts(nodes, node.id))
-            # 检查是否匹配任意白名单模式（匹配文件名或相对路径）
-            is_whitelisted = any(
-                pattern.search(full_name) or pattern.search(relative_path)
-                for pattern in whitelist_patterns
-            )
-            if is_whitelisted:
-                # 匹配的节点恢复（取消过滤）
-                node.is_filtered = False
-            else:
-                # 未匹配的节点标记为过滤
-                node.is_filtered = True
+            # 只处理已被黑名单过滤的节点
+            if node.is_filtered:
+                full_name = node.name + ('.' + node.suffix if node.suffix else '')
+                relative_path = '/'.join(get_relative_parts(nodes, node.id))
+                # 检查是否匹配任意白名单模式（匹配文件名或相对路径）
+                is_whitelisted = any(
+                    pattern.search(full_name) or pattern.search(relative_path)
+                    for pattern in whitelist_patterns
+                )
+                if is_whitelisted:
+                    # 匹配白名单的节点恢复（取消过滤）
+                    node.is_filtered = False
+                    # 调整计数
+                    if node.is_file:
+                        blacklisted_file_count -= 1
+                    else:
+                        blacklisted_folder_count -= 1
 
     # 深度调整（字符量检查）：只看未被过滤的节点
     unfiltered_nodes = [n for n in nodes.values() if not n.is_filtered]

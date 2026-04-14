@@ -10,7 +10,7 @@ except ImportError:
 class TokenCounter:
     """Token统计器，用于统计对话中的token使用量"""
     
-    def __init__(self, model_name: str = "qwen3-235b-a22b"):
+    def __init__(self, model_name: str = "qwen3-235b-a22b", inherit_from: 'TokenCounter' = None):
         self.model_name = model_name
         self.use_tiktoken = TIKTOKEN_AVAILABLE
         
@@ -28,27 +28,33 @@ class TokenCounter:
         else:
             self.encoding = None
         
-        # 当前轮次的token统计
-        self.current_round_stats = {
-            "user_input_tokens": 0,
-            "llm_output_tokens": 0,  # 包括思维链、自然语言、工具参数
-            "tool_result_tokens": 0,
-            "total_round_tokens": 0
-        }
-        
-        # 总token统计
-        self.total_stats = {
-            "total_input_tokens": 0,      # 总输入token（包括系统提示、工具定义、用户输入、工具返回）
-            "total_output_tokens": 0,     # 总输出token（LLM输出：思考+自然语言+工具调用）
-            "total_tokens": 0             # 总token = 总输入 + 总输出
-        }
-        
-        # 系统初始token统计
-        self.initial_tokens = {
-            "system_prompt_tokens": 0,
-            "tools_definition_tokens": 0,
-            "total_initial_tokens": 0
-        }
+        # 如果指定了继承来源，复制其统计状态
+        if inherit_from is not None:
+            self.current_round_stats = inherit_from.current_round_stats.copy()
+            self.total_stats = inherit_from.total_stats.copy()
+            self.initial_tokens = inherit_from.initial_tokens.copy()
+        else:
+            # 当前轮次的token统计
+            self.current_round_stats = {
+                "user_input_tokens": 0,
+                "llm_output_tokens": 0,  # 包括思维链、自然语言、工具参数
+                "tool_result_tokens": 0,
+                "total_round_tokens": 0
+            }
+            
+            # 总token统计
+            self.total_stats = {
+                "total_input_tokens": 0,      # 总输入token（包括系统提示、工具定义、用户输入、工具返回）
+                "total_output_tokens": 0,     # 总输出token（LLM输出：思考+自然语言+工具调用）
+                "total_tokens": 0             # 总token = 总输入 + 总输出
+            }
+            
+            # 系统初始token统计
+            self.initial_tokens = {
+                "system_prompt_tokens": 0,
+                "tools_definition_tokens": 0,
+                "total_initial_tokens": 0
+            }
     
     def count_tokens(self, text: str) -> int:
         """计算文本的token数量"""

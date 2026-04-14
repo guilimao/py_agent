@@ -147,8 +147,8 @@ class TerminalSession:
         if self.process and self.process.poll() is not None:
             return True, "进程已结束"
         
-        # 如果超过1分钟，返回执行中状态
-        if current_time - self.last_activity > 60:
+        # 如果超过10分钟，返回执行中状态
+        if current_time - self.last_activity > 600:
             return False, "命令执行中"
         
         # 检查5秒内是否有新输出
@@ -297,7 +297,7 @@ def execute_command(send: str = None, session_id: int = None, refresh: bool = Fa
         
         # 等待命令执行或超时
         start_time = time.time()
-        max_wait = 60  # 最大等待60秒
+        max_wait = 600  # 最大等待10分钟
         
         while True:
             is_complete, status = session.is_command_complete()

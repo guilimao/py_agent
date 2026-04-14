@@ -202,11 +202,8 @@
                 ]
             },
             {
-                "name": "google/gemini-3-pro-preview",
-                "parameters": [
-                    ["tools","Delete"],
-                    ["max_tokens",64000]
-                ]
+                "name": "google/gemini-3.1-pro-preview",
+                "parameters": []
             },
             {
                 "name": "anthropic/claude-sonnet-4.5",
@@ -219,16 +216,15 @@
                 "parameters": []
             },
             {
-                "name": "anthropic/claude-opus-4.6",
+                "name": "google/gemma-4-31b-it",
                 "parameters": [
-                    ["tools","Delete"],
-                    ["max_tokens",64000]
+                    ["tools","Delete"]
                 ]
             },
             {
-                "name": "stepfun/step-3.5-flash:free",
+                "name": "deepseek/deepseek-v3.2-speciale",
                 "parameters": [
-                    ["max_tokens",64000]
+                    ["tools","Delete"]
                 ]
             }
         ]
