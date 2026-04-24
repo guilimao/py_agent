@@ -1,42 +1,24 @@
 {
-    "doubao": {
-        "api_key_env": "ARK_API_KEY",
-        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "sdk_name": "openai",
-        "models": [
-            {
-                "name": "doubao-seed-1-6-250615",
-                "parameters": []
-            },
-            {
-                "name": "deepseek-v3-1-250821",
-                "parameters": []
-            },
-            {
-                "name": "doubao-seed-1-6-thinking-250615",
-                "parameters": []
-            },
-            {
-                "name": "kimi-k2-250711",
-                "parameters": []
-            }
-        ]
-    },
     "deepseek": {
         "api_key_env": "DEEPSEEK_API_KEY",
         "base_url": "https://api.deepseek.com/v1",
         "sdk_name": "openai",
         "models": [
             {
-                "name": "deepseek-chat",
+                "name": "deepseek-v4-flash",
                 "parameters": [
-                    ["max_tokens",8000]
+                    ["max_tokens",384000],
+                    ["reasoning_effort","high"],
+                    ["extra_body", {
+                        "thinking": {"type": "enabled"}
+                    }]
                 ]
             },
             {
-                "name": "deepseek-reasoner",
+                "name": "deepseek-v4-pro",
                 "parameters": [
-                    ["max_tokens",64000],
+                    ["max_tokens",384000],
+                    ["reasoning_effort","high"],
                     ["extra_body", {
                         "thinking": {"type": "enabled"}
                     }]
@@ -92,49 +74,21 @@
             }            
         ]
     },
-    "tencent": {
-        "api_key_env": "HUNYUAN_API_KEY",
-        "base_url": "https://api.hunyuan.cloud.tencent.com/v1",
-        "sdk_name": "openai",
-        "models": [
-            {
-                "name": "hunyuan-t1-latest",
-                "parameters": []
-            },
-            {
-                "name": "hunyuan-turbos-latest",
-                "parameters": []
-            }
-        ]
-    },
     "moonshot": {
         "api_key_env": "MOONSHOT_API_KEY",
         "base_url": "https://api.moonshot.cn/v1",
         "sdk_name": "openai",
         "models": [
             {
+                "name": "kimi-k2.6",
+                "parameters": [
+                    ["max_tokens",256000]
+                ]
+            },
+            {
                 "name": "kimi-k2.5",
-                "parameters": []
-            },
-            {
-                "name": "kimi-k2-turbo-preview",
                 "parameters": [
-                    ["max_tokens",200000],
-                    ["temperature",0.6]
-                ]
-            },
-            {
-                "name": "kimi-k2-thinking",
-                "parameters": [
-                    ["max_tokens",200000],
-                    ["temperature",1.0]
-                ]
-            },
-            {
-                "name": "kimi-k2-thinking-turbo",
-                "parameters": [
-                    ["max_tokens",200000],
-                    ["temperature",1.0]
+                    ["max_tokens",256000]
                 ]
             }
         ]
@@ -177,19 +131,6 @@
             }
         ]
     },
-    "minimax": {
-        "api_key_env": "MINIMAX_API_KEY",
-        "base_url": "https://api.minimaxi.com/anthropic",
-        "sdk_name": "anthropic",
-        "models": [
-            {
-                "name": "MiniMax-M2",
-                "parameters": [
-                    ["max_tokens",196000]
-                ]
-            }
-        ]
-    },
     "openrouter": {
         "api_key_env": "OPENROUTER_API_KEY",
         "base_url": "https://openrouter.ai/api/v1",
@@ -225,19 +166,6 @@
                 "name": "deepseek/deepseek-v3.2-speciale",
                 "parameters": [
                     ["tools","Delete"]
-                ]
-            }
-        ]
-    },
-    "zhipu":{
-        "api_key_env": "ZAI_API_KEY",
-        "base_url": "https://open.bigmodel.cn/api/paas/v4/",
-        "sdk_name": "openai",
-        "models": [
-            {
-                "name": "glm-4.7",
-                "parameters": [
-                    ["temperature",1.0]
                 ]
             }
         ]
