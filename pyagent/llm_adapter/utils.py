@@ -6,6 +6,7 @@ LLM适配器工具函数
 
 import re
 import json
+import traceback
 from typing import Dict, Any, List, Optional, Union
 from urllib.parse import urlparse
 
@@ -222,7 +223,6 @@ def format_error_message(error: Exception, include_traceback: bool = False) -> s
     error_message = str(error)
     
     if include_traceback:
-        import traceback
         tb = traceback.format_exc()
         return f"{error_type}: {error_message}\n\n堆栈跟踪:\n{tb}"
     

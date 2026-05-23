@@ -1,11 +1,13 @@
+import atexit
+import os
 import subprocess
+import sys
 import threading
 import time
-import chardet
-import os
-import sys
-from typing import Dict, List, Optional, Tuple
 from queue import Queue, Empty
+from typing import Dict, List, Optional, Tuple
+
+import chardet
 
 
 class TerminalSession:
@@ -411,6 +413,5 @@ def cleanup():
     terminal_manager.close_all_sessions()
 
 
-# 注册清理函数
-import atexit
+# 注册清理函数（程序退出时自动关闭所有终端会话）
 atexit.register(cleanup)
