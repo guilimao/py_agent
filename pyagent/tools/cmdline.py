@@ -23,7 +23,7 @@ def _decode_output(data: bytes) -> str:
         return ""
 
     if os.name == 'nt':
-        encodings = ['gbk', 'gb2312', 'utf-8', 'latin-1']
+        encodings = ['utf-8', 'gbk', 'gb2312', 'utf-16-le', 'latin-1']
     else:
         encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1']
 
@@ -62,13 +62,21 @@ def execute_command(command: str = None, timeout: int = 30):
     try:
         start_time = time.time()
 
-        process = subprocess.Popen(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            executable='/bin/bash' if os.name != 'nt' else None,
-        )
+        if os.name == 'nt':
+            # Windows 上使用 PowerShell 执行命令
+            process = subprocess.Popen(
+                ['powershell.exe', '-NoProfile', '-Command', command],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        else:
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                executable='/bin/bash',
+            )
 
         try:
             stdout, _ = process.communicate(timeout=timeout)
