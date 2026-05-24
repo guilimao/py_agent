@@ -1,21 +1,26 @@
 from .frontends import FrontendInterface
 from .tools import TOOL_FUNCTIONS, TOOLS
 from .tools.handoff import HandoffSignal
+from .tools.browser_manager import cleanup_browser
+from .tools.web_browser import build_overflow_message
 from .token_counter import TokenCounter
 from .frontends.image_handler import ImageHandler
 from . import conversation_saver
 from .llm_adapter import UnifiedLLMClient
 from .conversation_manager import ConversationManager, StreamResponseHandler
 import json_repair
+import os
+import shutil
+import tempfile
 from datetime import datetime
 
 
 class Agent:
     def __init__(
-        self, 
-        client: UnifiedLLMClient, 
-        frontend: FrontendInterface, 
-        system_prompt: str, 
+        self,
+        client: UnifiedLLMClient,
+        frontend: FrontendInterface,
+        system_prompt: str,
         model_name: str,
         model_parameters: list = None,
         token_counter: TokenCounter = None
@@ -25,7 +30,11 @@ class Agent:
         self.conversation_manager = ConversationManager(system_prompt)
         self.model_name = model_name
         self.model_parameters = model_parameters or []
-        
+
+        # 临时文件生命周期管理
+        self._temp_dir: str | None = None
+        self._temp_files: list[str] = []
+
         # 如果传入了token_counter，则继承使用；否则创建新的
         if token_counter is not None:
             self.token_counter = TokenCounter(model_name, inherit_from=token_counter)
@@ -34,49 +43,117 @@ class Agent:
             # 设置系统初始token（系统提示+工具定义）
             from .tools import TOOLS
             self.token_counter.set_initial_tokens(system_prompt, TOOLS)
-        
+
         # 系统提示将在有实际用户输入后再保存，避免保存空对话
-        
+
         # 创建当前会话的session_id
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.session_id = f"conversation_{timestamp}"
+
+    # ------------------------------------------------------------------
+    # 临时文件生命周期管理
+    # ------------------------------------------------------------------
+
+    def _ensure_temp_dir(self) -> str:
+        """确保会话专属临时目录存在，返回其路径。
+
+        目录在 Agent 销毁时统一清理。
+        """
+        if self._temp_dir is None:
+            self._temp_dir = tempfile.mkdtemp(
+                prefix=f"pyagent_{self.session_id}_"
+            )
+        return self._temp_dir
+
+    def _create_managed_temp_file(
+        self,
+        content: str,
+        url: str = "",
+    ) -> str:
+        """在会话托管的临时目录中创建文件。
+
+        Args:
+            content: 要写入的完整内容
+            url: 来源 URL（用于生成有意义的文件名片段）
+
+        Returns:
+            临时文件的绝对路径
+        """
+        temp_dir = self._ensure_temp_dir()
+
+        # 从 URL 提取安全的文件名片段
+        safe_slug = ""
+        if url:
+            slug = url.replace("https://", "").replace("http://", "")
+            safe_chars = []
+            for ch in slug[:50]:
+                if ch.isalnum() or ch in ".-_":
+                    safe_chars.append(ch)
+                else:
+                    safe_chars.append("_")
+            safe_slug = "".join(safe_chars).strip("_")
+
+        prefix = f"browser_{safe_slug}_" if safe_slug else "browser_"
+        fd, path = tempfile.mkstemp(
+            prefix=prefix, suffix=".txt", dir=temp_dir, text=True
+        )
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        self._temp_files.append(path)
+        return path
+
+    def _cleanup_temp_files(self) -> None:
+        """清理所有会话托管的临时文件以及浏览器资源。"""
+        cleanup_browser()
+        if self._temp_dir and os.path.isdir(self._temp_dir):
+            shutil.rmtree(self._temp_dir, ignore_errors=True)
+            self._temp_dir = None
+            self._temp_files.clear()
+
+    # ------------------------------------------------------------------
+    # 运行与交接
+    # ------------------------------------------------------------------
 
     def run(self):
         try:
             self.frontend.start_session()
             total_input_tokens = 0
             total_output_tokens = 0
-            
+
             while True:
                 # 获取用户输入
                 user_input, has_input = self.frontend.get_input()
                 if not has_input or user_input.lower() == '退出':
                     break
-                
+
                 # 处理用户输入，提取图像
                 clean_text, content_parts = ImageHandler.process_user_input(user_input)
-                
+
                 # 统计图像数量
                 image_count = len([part for part in content_parts if part.get("type") == "image_url"])
-                
+
                 # 添加用户输入到对话上下文
                 self.conversation_manager.add_user_message(clean_text, content_parts)
-                
+
                 # 如果是第一条用户消息，先保存系统提示再保存用户消息
                 if len(self.conversation_manager.get_messages_for_sdk()) == 2:  # system + user
                     system_message = self.conversation_manager.get_system_message()
                     if system_message:
                         conversation_saver.save_conversation([system_message], self.session_id)
-                
+
                 conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
 
                 # 计算输入token总数
                 user_tokens = self.token_counter.count_tokens(clean_text)
                 image_info = f" 已添加图像: {image_count}张" if image_count > 0 else ""
                 self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens{image_info}")
-                
+
                 # 处理对话循环（可能包含工具调用）
                 self._process_conversation_round(total_input_tokens, total_output_tokens)
+
+                # 轮次结束后清理浏览器，释放事件循环，避免与 prompt_toolkit 的 asyncio.run() 冲突
+                cleanup_browser()
 
         except HandoffSignal as handoff:
             # 处理交接信号：创建新Agent并继续运行
@@ -84,9 +161,10 @@ class Agent:
         except Exception as e:
             self.frontend.output('error', f"发生错误: {str(e)}")
         finally:
+            self._cleanup_temp_files()
             # 程序结束时恢复终端颜色为默认值
             self.frontend.end_session()
-    
+
     def _handle_handoff(self, handoff: HandoffSignal):
         """处理交接信号，创建新Agent并继续运行"""
         self.frontend.output('info', f"\n{'='*60}")
@@ -94,10 +172,10 @@ class Agent:
         self.frontend.output('info', f"{'='*60}")
         self.frontend.output('info', f"任务: {handoff.task[:100]}..." if len(handoff.task) > 100 else f"任务: {handoff.task}")
         self.frontend.output('info', f"{'='*60}\n")
-        
+
         # 计算交接前的token统计
         handoff_before_tokens = self.token_counter.total_stats['total_tokens']
-        
+
         # 创建新的Agent实例，使用相同的配置，并继承token计数器
         new_agent = Agent(
             client=self.client,
@@ -107,49 +185,52 @@ class Agent:
             model_parameters=self.model_parameters,
             token_counter=self.token_counter  # 传递当前token计数器，保持统计连续性
         )
-        
+
         # 显示继承的token统计
         self.frontend.output('info', f"📊 已继承历史Token统计: {handoff_before_tokens} tokens")
-        
+
         # 构建交接消息：包含历史需求、背景信息和当前任务
         handoff_message = handoff.user_prompt
-        
+
         # 创建图像内容（交接消息是纯文本，不需要图像处理）
         content_parts = [{"type": "text", "text": handoff_message}]
-        
+
         # 直接设置新Agent的第一条用户消息（不通过get_input）
         new_agent.conversation_manager.add_user_message(handoff_message, content_parts)
-        
+
         # 保存系统消息和用户消息
         system_message = new_agent.conversation_manager.get_system_message()
         if system_message:
             conversation_saver.save_conversation([system_message], new_agent.session_id)
         conversation_saver.save_conversation([new_agent.conversation_manager.get_last_message()], new_agent.session_id)
-        
+
         # 计算并显示交接消息的token
         handoff_message_tokens = new_agent.token_counter.count_tokens(handoff_message)
         self.frontend.output('info', f"📊 交接消息: {handoff_message_tokens} tokens")
-        
+
         # 启动新Agent的对话处理循环
         try:
             total_input_tokens = 0
             total_output_tokens = 0
-            
+
             while True:
                 # 处理对话循环（可能包含工具调用）
                 new_agent._process_conversation_round(total_input_tokens, total_output_tokens)
-                
+
+                # 轮次结束后清理浏览器，释放事件循环，避免与 prompt_toolkit 的 asyncio.run() 冲突
+                cleanup_browser()
+
                 # 继续获取用户输入
                 user_input, has_input = self.frontend.get_input()
                 if not has_input or user_input.lower() == '退出':
                     break
-                
+
                 # 处理用户输入，提取图像
                 clean_text, content_parts = ImageHandler.process_user_input(user_input)
-                
+
                 # 统计图像数量
                 image_count = len([part for part in content_parts if part.get("type") == "image_url"])
-                
+
                 # 添加用户输入到对话上下文
                 new_agent.conversation_manager.add_user_message(clean_text, content_parts)
                 conversation_saver.save_conversation([new_agent.conversation_manager.get_last_message()], new_agent.session_id)
@@ -158,51 +239,53 @@ class Agent:
                 user_tokens = new_agent.token_counter.count_tokens(clean_text)
                 image_info = f" 已添加图像: {image_count}张" if image_count > 0 else ""
                 self.frontend.output('info', f"📊 用户输入: {user_tokens} tokens{image_info}")
-                
+
         except HandoffSignal as next_handoff:
             # 如果新Agent也触发交接，递归处理
             new_agent._handle_handoff(next_handoff)
         except Exception as e:
             self.frontend.output('error', f"新Agent发生错误: {str(e)}")
+        finally:
+            new_agent._cleanup_temp_files()
 
     def _process_conversation_round(self, total_input_tokens: int, total_output_tokens: int):
         """处理一轮对话（可能包含多个工具调用）"""
         tool_result_tokens = 0
-        
+
         while True:
             # 获取完整的对话上下文（不再压缩）
             messages = self.conversation_manager.get_messages_for_sdk()
-            
+
             # 计算本次请求的上下文窗口token量
             context_window_tokens = self.token_counter.calculate_conversation_tokens(messages)
             total_input_tokens += context_window_tokens
-            
+
             self._show_context_stats(context_window_tokens, total_input_tokens, total_output_tokens)
-            
+
             # 构建API参数
             api_params = self._build_api_params(messages)
-            
+
             # 使用新的事件接口处理流式响应
             stream = self.client.chat_completions_create_with_events(**api_params)
-            
+
             # 创建流式响应处理器
             stream_handler = StreamResponseHandler(self.frontend)
-            
+
             # 处理流式事件
             for event in stream:
                 stream_handler.handle_stream_event(event)
-            
+
             # 获取处理结果
             result = stream_handler.get_result()
-            
+
             # 更新输出token统计
             thinking_tokens = self.token_counter.count_tokens(result["thinking"]) if result["has_thinking"] else 0
             content_tokens = self.token_counter.count_tokens(result["content"]) if result["has_content"] else 0
             total_output_tokens += thinking_tokens + content_tokens
-            
+
             # 显示token统计
             self._show_response_stats(thinking_tokens, content_tokens, total_input_tokens, total_output_tokens)
-            
+
             # 添加助手消息到对话历史
             self.conversation_manager.add_assistant_message(
                 result["content"],
@@ -210,7 +293,7 @@ class Agent:
                 result["tool_calls"]
             )
             conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
-            
+
             # 处理工具调用
             if result["has_tool_calls"]:
                 total_output_tokens += self._execute_tool_calls(result["tool_calls"])
@@ -226,7 +309,7 @@ class Agent:
             "stream": True,
             "tools": TOOLS,
         }
-        
+
         # 应用模型参数
         for param in self.model_parameters:
             if isinstance(param, list) and len(param) == 2:
@@ -237,24 +320,24 @@ class Agent:
                         del api_params[key]
                 else:
                     api_params[key] = value
-        
+
         return api_params
 
-    def _show_context_stats(self, context_window_tokens: int, total_input_tokens: int, 
+    def _show_context_stats(self, context_window_tokens: int, total_input_tokens: int,
                            total_output_tokens: int):
         """显示上下文统计信息"""
-        self.frontend.output('info', 
+        self.frontend.output('info',
             f"📊 上下文窗口: {context_window_tokens/1000} 千tokens "
             f"📊 输入token总量: {total_input_tokens} tokens  "
             f"📊 输出token总量: {total_output_tokens} tokens")
 
-    def _show_response_stats(self, thinking_tokens: int, content_tokens: int, 
+    def _show_response_stats(self, thinking_tokens: int, content_tokens: int,
                            total_input_tokens: int, total_output_tokens: int):
         """显示响应统计信息"""
-        self.frontend.output('info', 
+        self.frontend.output('info',
             f"📊 思考输出: {thinking_tokens} tokens  "
             f"📊 回答输出: {content_tokens} tokens")
-        self.frontend.output('info', 
+        self.frontend.output('info',
             f"📊 输入token总量: {total_input_tokens} tokens  "
             f"📊 输出token总量: {total_output_tokens} tokens")
 
@@ -263,7 +346,7 @@ class Agent:
         if not function_args:
             self.frontend.output('tool_progress', f"    参数: (无)\n")
             return
-        
+
         param_lines = []
         for key, value in function_args.items():
             # 将值转换为字符串并截断到50字
@@ -271,102 +354,122 @@ class Agent:
             if len(value_str) > 50:
                 value_str = value_str[:50] + "..."
             param_lines.append(f"    • {key}: {value_str}")
-        
+
         params_text = "\n".join(param_lines)
         self.frontend.output('tool_progress', f"    参数:\n{params_text}\n")
-        
+
     def _execute_tool_calls(self, tool_calls: list) -> int:
         """执行工具调用，返回工具调用的token消耗"""
         self.frontend.output('info', "\n工具参数接收完成，开始执行...")
-        
+
         tool_calls_tokens = 0
-        
+
         for tool_call in tool_calls:
             function_name = tool_call['function']['name']
             tool_call_id = tool_call['id']
-            
+
             try:
                 function_args = json_repair.loads(tool_call['function']['arguments'])
             except Exception as e:
-                self.frontend.output("error", 
+                self.frontend.output("error",
                     f"工具参数解析失败：{tool_call['function']['arguments']} - {str(e)}")
                 continue
-            
+
             # 计算工具调用的token
             tool_calls_tokens += (
-                self.token_counter.count_tokens(function_name) + 
+                self.token_counter.count_tokens(function_name) +
                 self.token_counter.count_tokens(tool_call['function']['arguments'])
             )
-            
+
             if function_name in TOOL_FUNCTIONS:
                 try:
                     # 显示工具调用参数信息（每个参数值限制50字）
                     self._display_tool_params(function_name, function_args)
-                    
+
                     # 获取工具函数的实际参数签名
                     import inspect
                     tool_func = TOOL_FUNCTIONS[function_name]
                     sig = inspect.signature(tool_func)
                     valid_params = list(sig.parameters.keys())
-                    
+
                     # 过滤参数，只保留工具函数接受的参数
                     filtered_args = {k: v for k, v in function_args.items() if k in valid_params}
-                    
+
                     # 如果有参数被过滤掉，显示警告信息
                     ignored_params = set(function_args.keys()) - set(filtered_args.keys())
                     if ignored_params:
-                        self.frontend.output('warning', 
+                        self.frontend.output('warning',
                             f"⚠️  工具 '{function_name}' 忽略了不支持的参数: {ignored_params}")
-                    
+
                     function_response = tool_func(**filtered_args)
-                    
-                    # 处理正常返回值（图像/错误/文本）
+
+                    # ---- 处理不同类型的返回值 ----
+
                     if isinstance(function_response, dict) and function_response.get("type") == "image":
                         # 图像类型的返回值
                         image_data = function_response.get("data", "")
                         filename = function_response.get("filename", "image")
                         mime_type = function_response.get("mime_type", "image/jpeg")
                         size = function_response.get("size", 0)
-                        
-                        # 构建文本描述
+
                         text_content = f"图像文件: {filename} ({mime_type}, {size} bytes)"
-                        
-                        # 使用支持图像的方法添加工具结果
+
                         self.conversation_manager.add_tool_result_with_image(
-                            tool_call_id, 
-                            text_content, 
+                            tool_call_id,
+                            text_content,
                             image_data
                         )
                         conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
-                        
-                        # 显示图像信息
+
                         self.frontend.output("tool_result", f"[图像] {text_content}")
                         self.frontend.output('info', f"📊 图像已添加到对话上下文")
-                        
-                        # 计算token（图像的token计算较为复杂，这里用描述文本的token作为参考）
+
                         tool_result_tokens = self.token_counter.count_tokens(text_content)
                         tool_calls_tokens += tool_result_tokens
-                        
+
                     elif isinstance(function_response, dict) and function_response.get("type") == "error":
                         # 错误类型的返回值
                         error_message = function_response.get("message", "未知错误")
                         self.conversation_manager.add_tool_result(tool_call_id, f"[错误] {error_message}")
                         conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
-                        
+
                         tool_result_tokens = self.token_counter.count_tokens(error_message)
                         self.frontend.output("tool_result", f"[错误] {error_message}")
                         self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
                         tool_calls_tokens += tool_result_tokens
-                        
+
+                    elif isinstance(function_response, dict) and function_response.get("type") == "overflow":
+                        # 内容溢出：创建托管临时文件，返回文件路径提示
+                        content = function_response.get("content", "")
+                        url = function_response.get("url", "")
+                        title = function_response.get("title", "")
+                        source_type = function_response.get("source_type", "网页内容")
+
+                        temp_path = self._create_managed_temp_file(content, url=url)
+                        response_str = build_overflow_message(
+                            file_path=temp_path,
+                            total_chars=len(content),
+                            url=url,
+                            title=title,
+                            source_type=source_type,
+                        )
+
+                        self.conversation_manager.add_tool_result(tool_call_id, response_str)
+                        conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
+
+                        tool_result_tokens = self.token_counter.count_tokens(response_str)
+                        self.frontend.output("tool_result", response_str)
+                        self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
+                        tool_calls_tokens += tool_result_tokens
+
                     else:
                         # 普通文本返回值
                         response_str = str(function_response)
                         self.conversation_manager.add_tool_result(tool_call_id, response_str)
                         conversation_saver.save_conversation([self.conversation_manager.get_last_message()], self.session_id)
-                        
-                        # 计算工具返回结果的token
+
                         tool_result_tokens = self.token_counter.count_tokens(response_str)
-                        
+
                         # 对read_file工具的返回值进行特殊处理，仅显示前10行
                         if function_name == "read_file":
                             display_lines = response_str.split('\n')[:10]
@@ -376,15 +479,15 @@ class Agent:
                             self.frontend.output("tool_result", display_str)
                         else:
                             self.frontend.output("tool_result", response_str)
-                        
+
                         self.frontend.output('info', f"📊 工具返回token量: {tool_result_tokens}")
                         tool_calls_tokens += tool_result_tokens
-                    
+
                 except HandoffSignal as handoff:
                     # 捕获交接信号，终止当前Agent并传播信号
                     self.frontend.output('info', f"\n🔄 接收到交接信号，准备启动新Agent...")
                     raise handoff
-                    
+
                 except Exception as e:
                     # 其他异常：添加错误信息作为 tool result
                     self.frontend.output('error', f"❌ 工具执行失败：{function_name} - {str(e)}")
@@ -394,8 +497,6 @@ class Agent:
                     tool_calls_tokens += tool_result_tokens
             else:
                 self.frontend.output('error', f"❌ 未找到工具函数：{function_name}")
-        
+
         self.frontend.output('info', f"📊 调用请求输出token量: {tool_calls_tokens}")
         return tool_calls_tokens
-
-        
