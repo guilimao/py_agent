@@ -27,7 +27,7 @@ class CommandlineFrontend(FrontendInterface):
         # 思考过程 - 灰色
         if message_type == "thinking":
             if not self.thinking_mode:
-                print("\n\033[90m思考过程：", end="")
+                print("\n\033[38;5;245m思考过程：", end="")
                 self.thinking_mode = True
             sys.stdout.write(content)
             sys.stdout.flush()
@@ -62,7 +62,7 @@ class CommandlineFrontend(FrontendInterface):
                 self.thinking_mode = False
             print(f"\n\033[92m{content}\033[0m")
             if "result" in kwargs:
-                print(f"\033[90m工具返回结果：{kwargs['result']}\033[0m")
+                print(f"\033[38;5;245m工具返回结果：{kwargs['result']}\033[0m")
         
         # 警告信息 - 黄色
         elif message_type == "warning":
