@@ -157,7 +157,7 @@
                 "parameters": []
             },
             {
-                "name": "google/gemma-4-31b-it",
+                "name": "anthropic/claude-opus-4.6",
                 "parameters": [
                     ["tools","Delete"]
                 ]

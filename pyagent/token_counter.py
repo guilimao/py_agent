@@ -143,8 +143,11 @@ class TokenCounter:
                                     total_tokens += 85  # 默认估算
         
         # 计算thinking的token
-        if message.get("thinking"):
-            total_tokens += self.count_tokens(str(message["thinking"]))
+        reasoning_text = message.get("reasoning_content")
+        if reasoning_text is None:
+            reasoning_text = message.get("thinking")
+        if reasoning_text:
+            total_tokens += self.count_tokens(str(reasoning_text))
         
         # 计算tool_calls的token
         if message.get("tool_calls"):

@@ -4,7 +4,8 @@ import importlib
 from .agent import Agent
 from .config import get_system_prompt
 from .frontends import CommandlineFrontend
-from .llm_adapter import LLMAdapterFactory, UnifiedLLMClient
+from .llm_adapter import UnifiedLLMClient
+from .sdk_factory import SDKFactory
 
 def load_provider_config():
     # 获取当前脚本所在目录的绝对路径
@@ -131,17 +132,15 @@ def main():
                 # 用户选择返回或重新加载，继续循环
                 continue
     
-    # 创建LLM适配器（简化调用，让工厂同时处理SDK客户端创建）
-    adapter = LLMAdapterFactory.create_adapter(
-        provider=selected_model["provider"],
-        model_name=selected_model["name"],
-        sdk_name=selected_model["sdk_name"],
-        api_key=api_key,
-        base_url=selected_model["base_url"]
+    # 创建 OpenAI SDK 客户端
+    sdk_client = SDKFactory.create_client(
+        selected_model["sdk_name"],
+        api_key,
+        selected_model["base_url"]
     )
-    
+
     # 创建统一的LLM客户端
-    client = UnifiedLLMClient(adapter)
+    client = UnifiedLLMClient(sdk_client, selected_model["name"])
     
     # 创建命令行前端实例
     frontend = CommandlineFrontend()
