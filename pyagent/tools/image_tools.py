@@ -3,14 +3,29 @@ import base64
 import mimetypes
 from typing import Union, Dict, List, Any
 
+# 支持的图像格式扩展名集合
+SUPPORTED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg'}
+
+# 扩展名到MIME类型的映射（作为 mimetypes 的补充）
+EXT_TO_MIME = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.bmp': 'image/bmp',
+    '.webp': 'image/webp',
+    '.tiff': 'image/tiff',
+    '.svg': 'image/svg+xml',
+}
+
 
 def read_image(image_path: str) -> Dict[str, Any]:
     """
     读取一个图像文件，将其编码为base64格式返回
-    
+
     Args:
         image_path: 图像文件的路径
-        
+
     Returns:
         包含图像信息的字典，格式为:
         {
@@ -32,49 +47,50 @@ def read_image(image_path: str) -> Dict[str, Any]:
                 "type": "error",
                 "message": f"图像文件不存在: {image_path}"
             }
-        
+
         # 检查是否为文件
         if not os.path.isfile(image_path):
             return {
                 "type": "error",
                 "message": f"路径不是文件: {image_path}"
             }
-        
+
+        # 获取文件扩展名
+        ext = os.path.splitext(image_path)[1].lower()
+
+        # 类型检查：首先通过扩展名判断是否为支持的图像格式
+        if ext not in SUPPORTED_IMAGE_EXTENSIONS:
+            # 再尝试通过 MIME 类型判断
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if not mime_type or not mime_type.startswith('image/'):
+                return {
+                    "type": "error",
+                    "message": f"格式不支持: 文件扩展名 '{ext}' 不是支持的图像格式，支持格式: {', '.join(sorted(SUPPORTED_IMAGE_EXTENSIONS))}"
+                }
+
         # 获取MIME类型
         mime_type, _ = mimetypes.guess_type(image_path)
         if not mime_type:
-            # 根据扩展名确定MIME类型
-            ext = os.path.splitext(image_path)[1].lower()
-            mime_map = {
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.png': 'image/png',
-                '.gif': 'image/gif',
-                '.bmp': 'image/bmp',
-                '.webp': 'image/webp',
-                '.tiff': 'image/tiff',
-                '.svg': 'image/svg+xml'
-            }
-            mime_type = mime_map.get(ext, 'image/jpeg')
-        
-        # 检查是否为支持的图像类型
+            mime_type = EXT_TO_MIME.get(ext, 'image/jpeg')
+
+        # 双重确认：MIME类型必须是 image/
         if not mime_type.startswith('image/'):
             return {
                 "type": "error",
-                "message": f"不支持的文件类型: {mime_type}，请提供图像文件"
+                "message": f"格式不支持: MIME类型 '{mime_type}' 不是图像格式，支持格式: {', '.join(sorted(SUPPORTED_IMAGE_EXTENSIONS))}"
             }
-        
+
         # 读取并编码图像
         with open(image_path, 'rb') as image_file:
             image_data = image_file.read()
             encoded_string = base64.b64encode(image_data).decode('utf-8')
-        
+
         # 构建data URL
         data_url = f"data:{mime_type};base64,{encoded_string}"
-        
+
         # 获取文件名
         filename = os.path.basename(image_path)
-        
+
         return {
             "type": "image",
             "data": data_url,
@@ -82,7 +98,7 @@ def read_image(image_path: str) -> Dict[str, Any]:
             "filename": filename,
             "size": len(image_data)
         }
-        
+
     except Exception as e:
         return {
             "type": "error",

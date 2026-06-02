@@ -218,18 +218,42 @@ def _check_overflow(content: str, command: str, max_chars: int = MAX_RETURN_CHAR
 # 工具元信息（供 LLM 识别）
 # ---------------------------------------------------------------------------
 
+def _get_shell_name() -> str:
+    """获取当前平台实际使用的 shell 名称。"""
+    if os.name == 'nt':
+        try:
+            return f"Git Bash ({_find_git_bash()})"
+        except FileNotFoundError:
+            return "Git Bash (bash.exe)"
+    return "/bin/bash"
+
+def _build_command_description() -> str:
+    """根据当前操作系统构建命令行工具的描述。"""
+    shell_name = _get_shell_name()
+
+    base = (
+        f"在当前操作系统（{os.name}）的命令行终端中执行 shell 命令。"
+        f"shell名称：{shell_name}。"
+        "每条命令在一个全新的隔离会话中运行，命令结束（或超时）后会话自动销毁。"
+        "输出长度不设上限，完整返回所有内容。"
+        "当输出超过 100,000 字符时，自动保存到临时文件并返回路径，"
+        "可使用 cat/head/tail/grep/less 等命令按需读取。"
+    )
+
+    if os.name == 'nt':
+        base += (
+            "注意：当前命令行存在长度限制（约 8191 字符）。"
+            "如果命令过长，请拆分为多次短命令分步执行。"
+        )
+
+    return base
+
 COMMAND_TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "execute_command",
-            "description": (
-                "在命令行终端中执行命令。"
-                "每条命令在一个全新的隔离会话中运行，命令结束（或超时）后会话自动销毁。"
-                "输出长度不设上限，完整返回所有内容。"
-                "当输出超过 100,000 字符时，自动保存到临时文件并返回路径，"
-                "可使用 cat/head/tail/grep/less 等命令按需读取。"
-            ),
+            "description": _build_command_description(),
             "parameters": {
                 "type": "object",
                 "properties": {
