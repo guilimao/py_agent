@@ -270,7 +270,20 @@ class Agent:
             )
 
             if function_name not in TOOL_FUNCTIONS:
+                error_msg = (
+                    f"工具 '{function_name}' 不存在。"
+                    f"请检查可用工具列表，使用存在的工具重新尝试。"
+                )
                 self.frontend.output("error", f"❌ 未找到工具函数：{function_name}")
+                self.conversation_manager.add_tool_result(
+                    tool_call_id, f"[错误] {error_msg}"
+                )
+                conversation_saver.save_conversation(
+                    [self.conversation_manager.get_last_message()],
+                    self.session_id,
+                )
+                tool_result_tokens = self.token_counter.count_tokens(error_msg)
+                tool_calls_tokens += tool_result_tokens
                 continue
 
             try:
@@ -377,17 +390,7 @@ class Agent:
                 )
 
                 tool_result_tokens = self.token_counter.count_tokens(response_str)
-
-                if function_name == "read_file":
-                    display_lines = response_str.split("\n")[:10]
-                    display_str = "\n".join(display_lines)
-                    if len(response_str.split("\n")) > 10:
-                        display_str += (
-                            f"\n... (仅显示前10行，共{len(response_str.split('\n'))}行)"
-                        )
-                    self.frontend.output("tool_result", display_str)
-                else:
-                    self.frontend.output("tool_result", response_str)
+                self.frontend.output("tool_result", response_str)
 
                 self.frontend.output("info", f"📊 工具返回token量: {tool_result_tokens}")
                 tool_calls_tokens += tool_result_tokens

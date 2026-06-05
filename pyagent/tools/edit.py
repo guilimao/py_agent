@@ -19,14 +19,17 @@ import unicodedata
 # ---------------------------------------------------------------------------
 
 def detect_line_ending(content: str) -> str:
-    """检测内容使用的行尾符：\r\n 或 \n。"""
-    crlf_idx = content.find("\r\n")
-    lf_idx = content.find("\n")
-    if lf_idx == -1:
+    """检测内容使用的主要行尾符：\r\n 或 \n。
+
+    使用多数投票策略：统计 CRLF 和纯 LF 的出现次数，
+    返回占多数的行尾符。若无行尾符，默认返回 \n。
+    """
+    crlf_count = content.count("\r\n")
+    # 纯 LF：总 LF 数减去 CRLF 中的 LF
+    lf_count = content.count("\n") - crlf_count
+    if crlf_count == 0 and lf_count == 0:
         return "\n"
-    if crlf_idx == -1:
-        return "\n"
-    return "\r\n" if crlf_idx < lf_idx else "\n"
+    return "\r\n" if crlf_count >= lf_count else "\n"
 
 
 def normalize_to_lf(text: str) -> str:
@@ -54,14 +57,21 @@ def strip_bom(content: str) -> tuple:
 
 def normalize_for_fuzzy_match(text: str) -> str:
     """
-    对文本进行渐进式规范化，用于模糊匹配：
+    对文本进行渐进式规范化，仅用于模糊匹配时的索引定位。
 
+    注意：此函数的结果**绝不**直接写回文件。它只用于在模糊空间中找到
+    oldText 的位置偏移，然后映射回原始内容进行替换。
+
+    规范化项目：
+    - 统一换行符为 LF（处理 \r\n 和独立 \r）
     - NFKC 规范化
     - 去除行尾空白
     - 智能引号 → ASCII 引号
     - Unicode 破折号/连字符 → ASCII 连字符
     - 特殊空格 → 常规空格
     """
+    # 先统一换行符
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = unicodedata.normalize("NFKC", text)
     # 去除行尾空白
     text = "\n".join(line.rstrip() for line in text.split("\n"))
