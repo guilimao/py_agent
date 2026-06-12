@@ -163,9 +163,9 @@
                 ]
             },
             {
-                "name": "deepseek/deepseek-v3.2-speciale",
+                "name": "anthropic/claude-fable-5",
                 "parameters": [
-                    ["tools","Delete"]
+                    ["max_tokens",64000]
                 ]
             }
         ]
