@@ -160,20 +160,20 @@ FILE_WRITE_TOOLS = [
         "function": {
             "name": "write_file",
             "description": (
-                "Write content to a file. Creates the file if it doesn't exist, "
-                "overwrites if it does. Automatically creates parent directories. "
-                "Supports ~ expansion and relative paths."
+                "将内容写入文件。若文件不存在则创建，"
+                "若已存在则覆盖。自动创建父目录。"
+                "支持 ~ 展开和相对路径。"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Path to the file to write (relative or absolute)",
+                        "description": "要写入的文件路径（相对或绝对路径）",
                     },
                     "content": {
                         "type": "string",
-                        "description": "Content to write to the file",
+                        "description": "要写入文件的内容",
                     },
                 },
                 "required": ["path", "content"],

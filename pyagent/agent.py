@@ -81,8 +81,6 @@ class Agent:
     def run(self):
         try:
             self.frontend.start_session()
-            total_input_tokens = 0
-            total_output_tokens = 0
 
             while True:
                 user_input, has_input = self.frontend.get_input()
@@ -106,11 +104,13 @@ class Agent:
                     self.session_id,
                 )
 
-                user_tokens = self.token_counter.count_tokens(clean_text)
+                # 开始新一轮统计，用户输入使用兜底计数；provider 用量在 LLM 响应后补充。
+                self.token_counter.start_new_round(clean_text)
+                user_tokens = self.token_counter.current_round_stats["user_input_tokens"]
                 image_info = f" 已添加图像: {image_count}张" if image_count > 0 else ""
                 self.frontend.output("info", f"📊 用户输入: {user_tokens} tokens{image_info}")
 
-                self._process_conversation_round(total_input_tokens, total_output_tokens)
+                self._process_conversation_round()
 
                 # 每轮结束后主动清理浏览器事件循环状态。
                 cleanup_browser()
@@ -121,50 +121,78 @@ class Agent:
             self._cleanup_temp_files()
             self.frontend.end_session()
 
-    def _process_conversation_round(
-        self,
-        total_input_tokens: int,
-        total_output_tokens: int,
-    ):
+    def _process_conversation_round(self):
         """处理一轮对话，期间可能发生多次工具调用。"""
         while True:
             messages = self.conversation_manager.get_messages_for_sdk()
 
+            # 兜底估算：当前完整上下文的 token 数。
             context_window_tokens = self.token_counter.calculate_conversation_tokens(messages)
-            total_input_tokens += context_window_tokens
-
-            self._show_context_stats(
-                context_window_tokens,
-                total_input_tokens,
-                total_output_tokens,
-            )
 
             api_params = self._build_api_params(messages)
             stream = self.client.chat_completions_create_with_events(**api_params)
             stream_handler = StreamResponseHandler(self.frontend)
 
+            provider_usage = None
             for event in stream:
+                if event.event_type == "usage":
+                    provider_usage = event.data
+                    continue
                 stream_handler.handle_stream_event(event)
 
             result = stream_handler.get_result()
 
-            thinking_tokens = (
-                self.token_counter.count_tokens(result["thinking"])
-                if result["has_thinking"]
-                else 0
+            fallback_output_tokens = self.token_counter.count_assistant_output(
+                result["thinking"],
+                result["content"],
+                result["tool_calls"],
             )
-            content_tokens = (
-                self.token_counter.count_tokens(result["content"])
-                if result["has_content"]
-                else 0
-            )
-            total_output_tokens += thinking_tokens + content_tokens
 
+            usage_info = (
+                self.token_counter.extract_provider_usage(provider_usage)
+                if provider_usage is not None
+                else {}
+            )
+            prompt_tokens = usage_info.get("prompt_tokens")
+            completion_tokens = usage_info.get("completion_tokens")
+            total_tokens = usage_info.get("total_tokens")
+
+            # 优先使用 provider 返回的 prompt/completion；不完整时回退到本地估算。
+            has_full_provider_usage = (
+                prompt_tokens is not None and completion_tokens is not None
+            )
+            if has_full_provider_usage:
+                self.token_counter.add_api_usage(
+                    prompt_tokens, completion_tokens, from_provider=True
+                )
+            elif (
+                prompt_tokens is not None
+                and completion_tokens is None
+                and total_tokens is not None
+            ):
+                self.token_counter.add_api_usage(
+                    prompt_tokens,
+                    total_tokens - prompt_tokens,
+                    from_provider=True,
+                )
+            elif (
+                completion_tokens is not None
+                and prompt_tokens is None
+                and total_tokens is not None
+            ):
+                self.token_counter.add_api_usage(
+                    total_tokens - completion_tokens,
+                    completion_tokens,
+                    from_provider=True,
+                )
+            else:
+                self.token_counter.add_api_usage(
+                    context_window_tokens, fallback_output_tokens
+                )
+
+            self._show_context_stats(context_window_tokens)
             self._show_response_stats(
-                thinking_tokens,
-                content_tokens,
-                total_input_tokens,
-                total_output_tokens,
+                self.token_counter.current_round_stats["llm_output_tokens"]
             )
 
             self.conversation_manager.add_assistant_message(
@@ -178,8 +206,9 @@ class Agent:
             )
 
             if result["has_tool_calls"]:
-                total_output_tokens += self._execute_tool_calls(result["tool_calls"])
+                self._execute_tool_calls(result["tool_calls"])
             else:
+                self.token_counter.finish_round()
                 break
 
     def _build_api_params(self, messages: list) -> dict:
@@ -201,35 +230,23 @@ class Agent:
 
         return api_params
 
-    def _show_context_stats(
-        self,
-        context_window_tokens: int,
-        total_input_tokens: int,
-        total_output_tokens: int,
-    ):
+    def _show_context_stats(self, context_window_tokens: int):
         self.frontend.output(
             "info",
             f"📊 上下文窗口: {context_window_tokens / 1000} 千tokens "
-            f"📊 输入token总量: {total_input_tokens} tokens  "
-            f"📊 输出token总量: {total_output_tokens} tokens",
+            f"📊 输入token总量: {self.token_counter.total_stats['total_input_tokens']} tokens  "
+            f"📊 输出token总量: {self.token_counter.total_stats['total_output_tokens']} tokens",
         )
 
-    def _show_response_stats(
-        self,
-        thinking_tokens: int,
-        content_tokens: int,
-        total_input_tokens: int,
-        total_output_tokens: int,
-    ):
+    def _show_response_stats(self, output_tokens: int):
         self.frontend.output(
             "info",
-            f"📊 思考输出: {thinking_tokens} tokens  "
-            f"📊 回答输出: {content_tokens} tokens",
+            f"📊 本轮输出: {output_tokens} tokens",
         )
         self.frontend.output(
             "info",
-            f"📊 输入token总量: {total_input_tokens} tokens  "
-            f"📊 输出token总量: {total_output_tokens} tokens",
+            f"📊 输入token总量: {self.token_counter.total_stats['total_input_tokens']} tokens  "
+            f"📊 输出token总量: {self.token_counter.total_stats['total_output_tokens']} tokens",
         )
 
     def _display_tool_params(self, function_name: str, function_args: dict) -> None:
@@ -247,9 +264,8 @@ class Agent:
         params_text = "\n".join(param_lines)
         self.frontend.output("tool_progress", f"    参数:\n{params_text}\n")
 
-    def _execute_tool_calls(self, tool_calls: list) -> int:
+    def _execute_tool_calls(self, tool_calls: list) -> None:
         self.frontend.output("info", "\n工具参数接收完成，开始执行...")
-        tool_calls_tokens = 0
 
         for tool_call in tool_calls:
             function_name = tool_call["function"]["name"]
@@ -264,11 +280,6 @@ class Agent:
                 )
                 continue
 
-            tool_calls_tokens += (
-                self.token_counter.count_tokens(function_name)
-                + self.token_counter.count_tokens(tool_call["function"]["arguments"])
-            )
-
             if function_name not in TOOL_FUNCTIONS:
                 error_msg = (
                     f"工具 '{function_name}' 不存在。"
@@ -282,8 +293,11 @@ class Agent:
                     [self.conversation_manager.get_last_message()],
                     self.session_id,
                 )
-                tool_result_tokens = self.token_counter.count_tokens(error_msg)
-                tool_calls_tokens += tool_result_tokens
+                self.token_counter.add_tool_result(error_msg)
+                self.frontend.output(
+                    "info",
+                    f"📊 工具返回token量: {self.token_counter.count_tokens(error_msg)}",
+                )
                 continue
 
             try:
@@ -328,8 +342,11 @@ class Agent:
                     self.frontend.output("tool_result", f"[图像] {text_content}")
                     self.frontend.output("info", "📊 图像已添加到对话上下文")
 
-                    tool_result_tokens = self.token_counter.count_tokens(text_content)
-                    tool_calls_tokens += tool_result_tokens
+                    self.token_counter.add_tool_result(text_content)
+                    self.frontend.output(
+                        "info",
+                        f"📊 工具返回token量: {self.token_counter.count_tokens(text_content)}",
+                    )
                     continue
 
                 if (
@@ -346,10 +363,12 @@ class Agent:
                         self.session_id,
                     )
 
-                    tool_result_tokens = self.token_counter.count_tokens(error_message)
                     self.frontend.output("tool_result", f"[错误] {error_message}")
-                    self.frontend.output("info", f"📊 工具返回token量: {tool_result_tokens}")
-                    tool_calls_tokens += tool_result_tokens
+                    self.token_counter.add_tool_result(error_message)
+                    self.frontend.output(
+                        "info",
+                        f"📊 工具返回token量: {self.token_counter.count_tokens(error_message)}",
+                    )
                     continue
 
                 if (
@@ -376,10 +395,12 @@ class Agent:
                         self.session_id,
                     )
 
-                    tool_result_tokens = self.token_counter.count_tokens(response_str)
                     self.frontend.output("tool_result", response_str)
-                    self.frontend.output("info", f"📊 工具返回token量: {tool_result_tokens}")
-                    tool_calls_tokens += tool_result_tokens
+                    self.token_counter.add_tool_result(response_str)
+                    self.frontend.output(
+                        "info",
+                        f"📊 工具返回token量: {self.token_counter.count_tokens(response_str)}",
+                    )
                     continue
 
                 response_str = str(function_response)
@@ -389,11 +410,12 @@ class Agent:
                     self.session_id,
                 )
 
-                tool_result_tokens = self.token_counter.count_tokens(response_str)
                 self.frontend.output("tool_result", response_str)
-
-                self.frontend.output("info", f"📊 工具返回token量: {tool_result_tokens}")
-                tool_calls_tokens += tool_result_tokens
+                self.token_counter.add_tool_result(response_str)
+                self.frontend.output(
+                    "info",
+                    f"📊 工具返回token量: {self.token_counter.count_tokens(response_str)}",
+                )
 
             except Exception as e:
                 self.frontend.output("error", f"❌ 工具执行失败：{function_name} - {str(e)}")
@@ -402,8 +424,13 @@ class Agent:
                     [self.conversation_manager.get_last_message()],
                     self.session_id,
                 )
-                tool_result_tokens = self.token_counter.count_tokens(str(e))
-                tool_calls_tokens += tool_result_tokens
+                self.token_counter.add_tool_result(str(e))
+                self.frontend.output(
+                    "info",
+                    f"📊 工具返回token量: {self.token_counter.count_tokens(str(e))}",
+                )
 
-        self.frontend.output("info", f"📊 调用请求输出token量: {tool_calls_tokens}")
-        return tool_calls_tokens
+        self.frontend.output(
+            "info",
+            f"📊 本轮工具返回累计: {self.token_counter.current_round_stats['tool_result_tokens']} tokens",
+        )

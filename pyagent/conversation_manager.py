@@ -238,8 +238,10 @@ class StreamResponseHandler:
             self._handle_tool_call_chunk(event.data)
 
         elif event.event_type == "finish":
+            is_first_finish = self.finish_reason is None
             self.finish_reason = event.data
-            self.frontend.output("end", f"\n[Stream结束] 完成原因: {event.data}")
+            if is_first_finish:
+                self.frontend.output("end", f"\n[Stream结束] 完成原因: {event.data}")
 
     def _handle_tool_call_chunk(self, tool_chunk):
         if isinstance(tool_chunk, dict):

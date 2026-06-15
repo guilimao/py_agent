@@ -407,27 +407,27 @@ READ_FILE_TOOLS = [
         "function": {
             "name": "read_file",
             "description": (
-                "Read the contents of a file. Supports text files and images "
-                "(jpg, png, gif, webp). Images are returned as base64 encoded data. "
-                f"For text files, output is truncated to {DEFAULT_MAX_LINES} lines "
-                f"or {DEFAULT_MAX_BYTES // 1024}KB (whichever is hit first). "
-                "Use offset/limit for large files. "
-                "When you need the full file, continue with offset until complete."
+                "读取文件内容。支持文本文件和图片（jpg、png、gif、webp）。"
+                "图片以 base64 编码数据返回。"
+                f"对于文本文件，输出截断至 {DEFAULT_MAX_LINES} 行或 "
+                f"{DEFAULT_MAX_BYTES // 1024}KB（以先触发者为准）。"
+                "对于大文件请使用 offset/limit 分页读取。"
+                "需要完整文件时，继续使用 offset 直到读完为止。"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Path to the file to read (relative or absolute)",
+                        "description": "要读取的文件路径（相对或绝对路径）",
                     },
                     "offset": {
                         "type": "integer",
-                        "description": "Line number to start reading from (1-indexed)",
+                        "description": "起始行号（从1开始计数）",
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "Maximum number of lines to read",
+                        "description": "最大读取行数",
                     },
                 },
                 "required": ["path"],
