@@ -2,9 +2,9 @@
 read_file 工具的综合测试套件。
 
 覆盖场景：
-- 底层函数：路径解析、Unicode 空格规范化、大小格式化、MIME 检测
+- 底层函数：路径解析、Unicode 空格规范化、大小格式化
 - _truncate_head（截断逻辑：行/字节限制、第一行超限、边界条件）
-- read_file 集成测试（文本文件、图片、二进制、错误处理）
+- read_file 集成测试（文本文件、二进制、错误处理）
 - offset / limit 分页读取
 - 截断提示信息（offset 建议）
 - 工具元信息
@@ -28,7 +28,6 @@ from pyagent.tools.read_file import (
     _resolve_path,
     _format_size,
     _truncate_head,
-    _detect_image_mime_type,
     read_file,
     DEFAULT_MAX_LINES,
     DEFAULT_MAX_BYTES,
@@ -168,37 +167,7 @@ class TestFormatSize(unittest.TestCase):
         self.assertIn("MB", result)
 
 
-# ============================================================================
-# _detect_image_mime_type 测试
-# ============================================================================
-
-class TestDetectImageMimeType(unittest.TestCase):
-
-    def test_jpeg(self):
-        self.assertEqual(_detect_image_mime_type("photo.jpg"), "image/jpeg")
-        self.assertEqual(_detect_image_mime_type("photo.jpeg"), "image/jpeg")
-
-    def test_png(self):
-        self.assertEqual(_detect_image_mime_type("photo.png"), "image/png")
-
-    def test_gif(self):
-        self.assertEqual(_detect_image_mime_type("photo.gif"), "image/gif")
-
-    def test_webp(self):
-        self.assertEqual(_detect_image_mime_type("photo.webp"), "image/webp")
-
-    def test_text_file(self):
-        self.assertIsNone(_detect_image_mime_type("document.txt"))
-        self.assertIsNone(_detect_image_mime_type("script.py"))
-
-    def test_unknown_extension(self):
-        self.assertIsNone(_detect_image_mime_type("file.xyz"))
-
-    def test_no_extension(self):
-        self.assertIsNone(_detect_image_mime_type("README"))
-
-
-# ============================================================================
+# ==============================================
 # _truncate_head 测试
 # ============================================================================
 
@@ -536,114 +505,6 @@ class TestReadFileTruncation(TempDirMixin, unittest.TestCase):
         r2 = read_file(path=path, offset=2001)
         self.assertIn("line_2000", r2)
         self.assertIn("line_2499", r2)
-
-
-class TestReadFileImages(TempDirMixin, unittest.TestCase):
-
-    def _create_test_png(self, path):
-        """创建一个最小有效的 PNG 文件（1x1 像素）。"""
-        import struct
-        import zlib
-
-        # PNG signature
-        signature = b"\x89PNG\r\n\x1a\n"
-
-        # IHDR chunk: 1x1, 8-bit grayscale
-        ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 0, 0, 0, 0)
-        ihdr_crc = zlib.crc32(b"IHDR" + ihdr_data) & 0xFFFFFFFF
-        ihdr_chunk = (
-            struct.pack(">I", 13) + b"IHDR" + ihdr_data + struct.pack(">I", ihdr_crc)
-        )
-
-        # IDAT chunk
-        raw_data = zlib.compress(b"\x00\x80")  # 灰度像素
-        idat_crc = zlib.crc32(b"IDAT" + raw_data) & 0xFFFFFFFF
-        idat_chunk = (
-            struct.pack(">I", len(raw_data))
-            + b"IDAT"
-            + raw_data
-            + struct.pack(">I", idat_crc)
-        )
-
-        # IEND chunk
-        iend_crc = zlib.crc32(b"IEND") & 0xFFFFFFFF
-        iend_chunk = struct.pack(">I", 0) + b"IEND" + struct.pack(">I", iend_crc)
-
-        with open(path, "wb") as f:
-            f.write(signature + ihdr_chunk + idat_chunk + iend_chunk)
-
-    def test_read_png_image(self):
-        """读取 PNG 图片应返回 base64 数据。"""
-        path = self.temp_path("test.png")
-        self._create_test_png(path)
-
-        result = read_file(path=path)
-        self.assertIn("Read image file", result)
-        self.assertIn("image/png", result)
-        self.assertIn("Base64 data", result)
-
-    def test_read_jpg_image(self):
-        """读取 JPEG 图片应返回 base64 数据。"""
-        path = self.temp_path("test.jpg")
-        # 最小有效 JPEG
-        jpeg_data = (
-            b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
-            b"\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n"
-            b"\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d"
-            b"\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342"
-            b"\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00"
-            b"\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00"
-            b"\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b"
-            b"\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05\x04\x04"
-            b"\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05\x12!1A\x06\x13Qa\x07\"q\x14"
-            b"2\x81\x91\xa1\x08#B\xb1\xc1\x15R\xd1\xf0$3br\x82\t\n\x16\x17\x18\x19"
-            b"\x1a%&'()*456789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz\x83\x84\x85\x86"
-            b"\x87\x88\x89\x8a\x92\x93\x94\x95\x96\x97\x98\x99\x9a\xa2\xa3\xa4\xa5"
-            b"\xa6\xa7\xa8\xa9\xaa\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xc2\xc3\xc4"
-            b"\xc5\xc6\xc7\xc8\xc9\xca\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xe1\xe2"
-            b"\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9"
-            b"\xfa\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xd2\xcf\x20\x00\xff\xd9"
-        )
-        with open(path, "wb") as f:
-            f.write(jpeg_data)
-
-        result = read_file(path=path)
-        self.assertIn("Read image file", result)
-        self.assertIn("image/jpeg", result)
-        self.assertIn("Base64 data", result)
-
-    def test_read_gif_image(self):
-        """读取 GIF 图片应返回 base64 数据。"""
-        path = self.temp_path("test.gif")
-        # 最小有效 GIF（1x1 透明像素）
-        gif_data = (
-            b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00"
-            b"!\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00"
-            b"\x02\x02D\x01\x00;"
-        )
-        with open(path, "wb") as f:
-            f.write(gif_data)
-
-        result = read_file(path=path)
-        self.assertIn("Read image file", result)
-        self.assertIn("image/gif", result)
-        self.assertIn("Base64 data", result)
-
-    def test_read_webp_image(self):
-        """读取 WebP 图片应返回 base64 数据。"""
-        path = self.temp_path("test.webp")
-        # 最小有效 WebP
-        webp_data = (
-            b"RIFF\x1a\x00\x00\x00WEBPVP8L\x0d\x00\x00\x00/\x00\x00\x00\x00"
-            b"\x01\x00\x01\x00\x00\x00\x01\x00\x01\x00\x00\x00\x00"
-        )
-        with open(path, "wb") as f:
-            f.write(webp_data)
-
-        result = read_file(path=path)
-        self.assertIn("Read image file", result)
-        self.assertIn("image/webp", result)
-        self.assertIn("Base64 data", result)
 
 
 class TestReadFileBinary(TempDirMixin, unittest.TestCase):

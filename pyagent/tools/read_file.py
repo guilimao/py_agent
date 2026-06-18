@@ -6,12 +6,9 @@
 - 文本截断：默认最大 2000 行或 50KB（以先到者为准）
 - 分页读取：通过 offset（1-indexed）和 limit 参数支持大文件分页
 - 截断时自动给出继续读取的提示（offset 建议）
-- 支持图片文件检测（通过 MIME 类型），图片以 base64 返回
 - 跨平台支持（Linux / macOS / Windows）
 """
 
-import base64
-import mimetypes
 import os
 import unicodedata
 
@@ -22,15 +19,6 @@ import unicodedata
 
 DEFAULT_MAX_LINES = 2000
 DEFAULT_MAX_BYTES = 50 * 1024  # 50KB
-
-# 支持的图片 MIME 类型
-_IMAGE_MIME_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-}
-
 
 # ===========================================================================
 # Unicode 空格规范化（与 pi 框架 UNICODE_SPACES 一致）
@@ -221,22 +209,6 @@ def _truncate_head(
 
 
 # ===========================================================================
-# MIME 类型检测
-# ===========================================================================
-
-def _detect_image_mime_type(file_path: str) -> str | None:
-    """
-    通过文件扩展名检测图片 MIME 类型。
-
-    返回 None 表示非图片文件。
-    """
-    mime_type, _ = mimetypes.guess_type(file_path)
-    if mime_type and mime_type in _IMAGE_MIME_TYPES:
-        return mime_type
-    return None
-
-
-# ===========================================================================
 # 主函数
 # ===========================================================================
 
@@ -246,9 +218,9 @@ def read_file(
     limit: int = None,
 ) -> str:
     """
-    读取文件内容。支持文本文件和图片（jpg、png、gif、webp）。
+    读取文本文件内容。
 
-    文本输出默认截断为 2000 行或 50KB（以先触发者为准）。
+    输出默认截断为 2000 行或 50KB（以先触发者为准）。
     对大文件请使用 offset/limit 参数分页读取。
     需要完整文件时，继续使用 offset 直到读完为止。
 
@@ -272,33 +244,6 @@ def read_file(
         return f"[ERROR] read_file: file not found — {path}"
     if not os.access(absolute_path, os.R_OK):
         return f"[ERROR] read_file: permission denied — {path}"
-
-    # ---- 检测图片 MIME 类型 ----
-    try:
-        mime_type = _detect_image_mime_type(absolute_path)
-    except Exception:
-        mime_type = None
-
-    if mime_type:
-        # ---- 读取图片 ----
-        try:
-            with open(absolute_path, "rb") as f:
-                image_data = f.read()
-
-            image_base64 = base64.b64encode(image_data).decode("ascii")
-            file_size = len(image_data)
-
-            result = (
-                f"Read image file [{mime_type}]\n"
-                f"File: {path}\n"
-                f"Size: {_format_size(file_size)}\n"
-                f"Base64 data ({len(image_base64)} chars):\n"
-                f"{image_base64}"
-            )
-            return result
-
-        except Exception as e:
-            return f"[ERROR] read_file: failed to read image — {e}"
 
     # ---- 读取文本内容 ----
     try:
@@ -407,9 +352,8 @@ READ_FILE_TOOLS = [
         "function": {
             "name": "read_file",
             "description": (
-                "读取文件内容。支持文本文件和图片（jpg、png、gif、webp）。"
-                "图片以 base64 编码数据返回。"
-                f"对于文本文件，输出截断至 {DEFAULT_MAX_LINES} 行或 "
+                "读取文本文件内容。"
+                f"输出截断至 {DEFAULT_MAX_LINES} 行或 "
                 f"{DEFAULT_MAX_BYTES // 1024}KB（以先触发者为准）。"
                 "对于大文件请使用 offset/limit 分页读取。"
                 "需要完整文件时，继续使用 offset 直到读完为止。"

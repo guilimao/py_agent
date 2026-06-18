@@ -7,6 +7,8 @@
 """
 
 import os
+import sys
+import subprocess
 import logging
 from typing import Optional
 
@@ -65,6 +67,7 @@ class BrowserManager:
 
         懒加载策略：首次调用时依次创建 playwright → browser → context → page。
         若已有 page 且未关闭，直接复用。
+        若检测到 Chromium 浏览器未安装，自动调用 playwright install 安装。
         """
         if self._playwright is None:
             from playwright.sync_api import sync_playwright
@@ -73,14 +76,7 @@ class BrowserManager:
         if self._browser is None or not self._browser.is_connected():
             # 使用环境变量或默认配置
             headless = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower() != "false"
-            self._browser = self._playwright.chromium.launch(
-                headless=headless,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                ],
-            )
+            self._browser = self._launch_browser_with_auto_install(headless)
 
         if self._context is None:
             # 自动读取系统代理环境变量
@@ -112,6 +108,73 @@ class BrowserManager:
             self._page = self._context.new_page()
 
         return self._page
+
+    # ------------------------------------------------------------------
+    # 浏览器安装与启动
+    # ------------------------------------------------------------------
+
+    def _launch_browser_with_auto_install(self, headless: bool):
+        """启动 Chromium 浏览器，若未安装则自动安装后重试。
+
+        使用当前 Python 解释器（sys.executable）执行 playwright install，
+        确保浏览器安装到 uv tool 创建的隔离环境中，而非系统全局路径。
+        """
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                return self._playwright.chromium.launch(
+                    headless=headless,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage",
+                    ],
+                )
+            except Exception as e:
+                error_msg = str(e)
+                # 识别「浏览器可执行文件不存在」相关错误
+                is_missing_browser = (
+                    "Executable doesn't exist" in error_msg
+                    or "playwright install" in error_msg
+                )
+                if is_missing_browser and attempt < max_retries - 1:
+                    logger.warning(
+                        "Chromium 浏览器未安装，正在使用当前环境自动安装..."
+                    )
+                    self._install_browser()
+                else:
+                    raise
+
+    def _install_browser(self):
+        """使用当前虚拟环境中的 Python 解释器安装 Playwright Chromium。
+
+        关键点：必须使用 sys.executable，因为 uv tool install 会创建隔离的
+        Python 环境。直接调用系统 playwright 命令可能指向错误的环境，
+        导致浏览器安装到不可达的位置。
+        """
+        cmd = [sys.executable, "-m", "playwright", "install", "chromium"]
+        logger.info(f"执行安装命令：{' '.join(cmd)}")
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 下载浏览器可能需要几分钟
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.strip()
+                logger.error(f"playwright install 失败：{stderr}")
+                raise RuntimeError(
+                    f"浏览器自动安装失败。请手动运行：\n"
+                    f"  {sys.executable} -m playwright install chromium\n"
+                    f"错误详情：{stderr}"
+                )
+            logger.info("Chromium 浏览器安装成功")
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(
+                "浏览器下载超时（5分钟），请检查网络连接后手动运行：\n"
+                f"  {sys.executable} -m playwright install chromium"
+            )
 
     # ------------------------------------------------------------------
     # 页面操作
