@@ -415,25 +415,6 @@ class OutputAccumulator:
 # 平台检测与 Shell 解析
 # ---------------------------------------------------------------------------
 
-def _decode_output(data: bytes) -> str:
-    """解码命令输出，按操作系统优先级自动检测编码。"""
-    if not data:
-        return ""
-
-    if os.name == "nt":
-        encodings = ["utf-8", "gbk", "gb2312", "utf-16-le", "latin-1"]
-    else:
-        encodings = ["utf-8", "gbk", "gb2312", "latin-1"]
-
-    for encoding in encodings:
-        try:
-            return data.decode(encoding, errors="strict")
-        except (UnicodeDecodeError, LookupError):
-            continue
-
-    return data.decode("latin-1", errors="ignore")
-
-
 def _find_git_bash() -> str:
     """查找 Windows 上的 Git Bash 可执行文件。"""
     env_path = os.environ.get("GIT_BASH_PATH")
@@ -454,9 +435,16 @@ def _find_git_bash() -> str:
 
 
 def _get_shell_env() -> dict:
-    """获取 shell 环境变量（继承当前进程环境）。"""
+    """获取 shell 环境变量（继承当前进程环境）。
+
+    显式设置 LANG / LC_ALL / LC_CTYPE 为 en_US.UTF-8，确保子进程
+    （包括 Git Bash）的输出无论是否连接 TTY 都使用 UTF-8 编码，
+    与 OutputAccumulator 的 UTF-8 流式解码保持一致。
+    """
     env = os.environ.copy()
-    # 确保基本 PATH 设置
+    env["LANG"] = "en_US.UTF-8"
+    env["LC_ALL"] = "en_US.UTF-8"
+    env["LC_CTYPE"] = "en_US.UTF-8"
     return env
 
 
@@ -472,6 +460,7 @@ def _build_command(command: str) -> dict:
         git_bash = _find_git_bash()
         return {
             "args": [git_bash, "-lc", command],
+            "stdin": subprocess.DEVNULL,
             "stdout": subprocess.PIPE,
             "stderr": subprocess.PIPE,
             "creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
@@ -480,6 +469,7 @@ def _build_command(command: str) -> dict:
     return {
         "args": command,
         "shell": True,
+        "stdin": subprocess.DEVNULL,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
         "executable": "/bin/bash",
@@ -529,7 +519,7 @@ def _kill_process_tree(pid: int) -> None:
 # 命令执行（移植自 pi 框架 executeBashWithOperations）
 # ---------------------------------------------------------------------------
 
-def execute_command(command: str = None, timeout: int = None):
+def execute_command(command: str = None, timeout: int = 60):
     """
     在全新隔离会话中执行一条 shell 命令，完成后自动销毁。
 
@@ -542,7 +532,7 @@ def execute_command(command: str = None, timeout: int = None):
 
     Args:
         command: 要执行的 shell 命令。
-        timeout: 超时秒数（可选，默认无超时限制）。
+        timeout: 超时秒数（默认 60 秒）。传入 -1 表示无超时限制。
 
     Returns:
         str: 命令执行结果。若输出被截断，包含临时文件路径供后续读取。
@@ -554,7 +544,6 @@ def execute_command(command: str = None, timeout: int = None):
     output = OutputAccumulator(temp_file_prefix="pi-cmd")
     cancelled = False
     timed_out = False
-    timeout_handle = None
 
     try:
         start_time = time.time()
@@ -573,19 +562,6 @@ def execute_command(command: str = None, timeout: int = None):
 
         if child_process.pid:
             _track_child_pid(child_process.pid)
-
-        # ------------------------------------------------------------------
-        # 超时处理（仅当 timeout 明确指定时生效）
-        # ------------------------------------------------------------------
-        if timeout is not None and timeout > 0:
-            def _on_timeout():
-                nonlocal timed_out
-                timed_out = True
-                if child_process and child_process.pid:
-                    _kill_process_tree(child_process.pid)
-
-            timeout_handle = threading.Timer(timeout, _on_timeout)
-            timeout_handle.start()
 
         # ------------------------------------------------------------------
         # 流式读取 stdout 和 stderr
@@ -615,15 +591,32 @@ def execute_command(command: str = None, timeout: int = None):
         stdout_thread.start()
         stderr_thread.start()
 
-        # 等待进程结束
-        child_process.wait()
+        # ------------------------------------------------------------------
+        # 等待进程结束（使用原生 wait(timeout=...) 确保超时可靠）
+        # ------------------------------------------------------------------
+        _wait_timeout = None if (timeout is not None and timeout == -1) else (timeout if timeout and timeout > 0 else 60)
 
-        # 等待读取线程结束
-        stdout_thread.join(timeout=2)
-        stderr_thread.join(timeout=2)
+        try:
+            child_process.wait(timeout=_wait_timeout)
+        except subprocess.TimeoutExpired:
+            # 超时：强制终止进程树并标记超时
+            timed_out = True
+            if child_process.pid:
+                _kill_process_tree(child_process.pid)
+            # 再给进程一个短暂的宽限期完成清理
+            try:
+                child_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                # 极端情况：进程仍然存活，再次强杀
+                try:
+                    child_process.kill()
+                    child_process.wait(timeout=5)
+                except Exception:
+                    pass
 
-        if timeout_handle:
-            timeout_handle.cancel()
+        # 等待读取线程结束（设上限避免无限阻塞）
+        stdout_thread.join(timeout=5)
+        stderr_thread.join(timeout=5)
 
         output.finish()
         snapshot = output.snapshot(persist_if_truncated=True)
@@ -643,16 +636,32 @@ def execute_command(command: str = None, timeout: int = None):
             timed_out=timed_out,
         )
 
+    except KeyboardInterrupt:
+        # 用户主动中断：终止子进程，收集已有输出
+        cancelled = True
+        if child_process and child_process.pid:
+            _kill_process_tree(child_process.pid)
+        output.finish()
+        snapshot = output.snapshot(persist_if_truncated=True)
+        output.close_temp_file()
+
+        elapsed = int(time.time() - start_time) if "start_time" in dir() else 0
+
+        return _format_result(
+            snapshot=snapshot,
+            command=command,
+            elapsed=elapsed,
+            exit_code=None,
+            cancelled=True,
+            timed_out=False,
+        )
+
     except FileNotFoundError as e:
-        if timeout_handle:
-            timeout_handle.cancel()
         output.finish()
         output.close_temp_file()
         return f"❌ 执行命令时发生错误: {str(e)}"
 
     except Exception as e:
-        if timeout_handle:
-            timeout_handle.cancel()
         output.finish()
         snapshot = output.snapshot(persist_if_truncated=True)
         output.close_temp_file()
@@ -673,9 +682,6 @@ def execute_command(command: str = None, timeout: int = None):
         return f"❌ 执行命令时发生错误: {str(e)}"
 
     finally:
-        if timeout_handle:
-            timeout_handle.cancel()
-
         if child_process is not None:
             if child_process.pid:
                 _untrack_child_pid(child_process.pid)
@@ -834,7 +840,8 @@ COMMAND_TOOLS = [
                         "type": "integer",
                         "description": (
                             "命令超时时间（秒）。超时后会话强制终止并返回已产生的输出。"
-                            "默认不设超时。仅在预期命令可能长时间运行时指定。"
+                            "默认 60 秒。传入 -1 表示无超时限制，"
+                            "仅在确实需要无限期执行时使用。"
                         ),
                     },
                 },

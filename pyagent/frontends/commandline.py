@@ -5,7 +5,23 @@
 import sys
 from typing import Tuple
 from .base import FrontendInterface
-from .commandline_input import get_multiline_input
+from .commandline_input import get_multiline_input, sanitize_unicode
+
+
+def _safe_write(text: str) -> None:
+    """
+    安全写入 stdout，自动处理终端编码不支持的字符。
+
+    Windows 中文环境默认使用 GBK 编码，无法表示补充平面字符
+    （如 U+2C62B）时，用 'replace' 策略回退为 ? 而非崩溃。
+    """
+    try:
+        sys.stdout.write(text)
+    except UnicodeEncodeError:
+        # 终端编码（如 GBK）不支持该字符，用 ? 替代
+        sys.stdout.write(text.encode(sys.stdout.encoding or 'utf-8',
+                                      errors='replace').decode(sys.stdout.encoding or 'utf-8'))
+    sys.stdout.flush()
 
 class CommandlineFrontend(FrontendInterface):
     """
@@ -29,16 +45,14 @@ class CommandlineFrontend(FrontendInterface):
             if not self.thinking_mode:
                 print("\n\033[38;5;245m思考过程：", end="")
                 self.thinking_mode = True
-            sys.stdout.write(content)
-            sys.stdout.flush()
+            _safe_write(content)
         
         # 自然语言内容 - 默认颜色
         elif message_type == "content":
             if self.thinking_mode:
                 print("\n\033[0m", end="")  # 结束思考模式
                 self.thinking_mode = False
-            sys.stdout.write(content)
-            sys.stdout.flush()
+            _safe_write(content)
         
         # 工具调用 - 蓝色
         elif message_type == "tool_call":
@@ -52,8 +66,7 @@ class CommandlineFrontend(FrontendInterface):
             if self.thinking_mode:
                 print("\033[0m", end="")  # 确保重置颜色
                 self.thinking_mode = False
-            sys.stdout.write('\033[93m' + content + '\033[0m')
-            sys.stdout.flush()
+            _safe_write('\033[93m' + content + '\033[0m')
         
         # 工具结果 - 绿色
         elif message_type == "tool_result":

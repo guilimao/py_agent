@@ -115,6 +115,8 @@ class Agent:
                 # 每轮结束后主动清理浏览器事件循环状态。
                 cleanup_browser()
 
+        except KeyboardInterrupt:
+            self.frontend.output("warning", "\n⚠️  用户中断，正在退出...")
         except Exception as e:
             self.frontend.output("error", f"发生错误: {str(e)}")
         finally:
@@ -257,8 +259,6 @@ class Agent:
         param_lines = []
         for key, value in function_args.items():
             value_str = str(value)
-            if len(value_str) > 50:
-                value_str = value_str[:50] + "..."
             param_lines.append(f"    • {key}: {value_str}")
 
         params_text = "\n".join(param_lines)
