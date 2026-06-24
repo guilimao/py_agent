@@ -5,7 +5,7 @@
 import sys
 from typing import Tuple
 from .base import FrontendInterface
-from .commandline_input import get_multiline_input, sanitize_unicode
+from .commandline_input import get_multiline_input, sanitize_unicode, _ensure_utf8_stdio
 
 
 def _safe_write(text: str) -> None:
@@ -13,14 +13,31 @@ def _safe_write(text: str) -> None:
     安全写入 stdout，自动处理终端编码不支持的字符。
 
     Windows 中文环境默认使用 GBK 编码，无法表示补充平面字符
-    （如 U+2C62B）时，用 'replace' 策略回退为 ? 而非崩溃。
+    （如 U+2C62B）。优先尝试直接写入（现代终端如 Windows Terminal
+    支持 UTF-8），其次尝试通过 sys.stdout.buffer 写入 UTF-8 原始
+    字节，最后回退到 'replace' 策略（用 ? 替代）。
     """
+    # 第一优先：直接写入（如果终端支持 UTF-8 或字符在编码范围内）
     try:
         sys.stdout.write(text)
+        sys.stdout.flush()
+        return
     except UnicodeEncodeError:
-        # 终端编码（如 GBK）不支持该字符，用 ? 替代
-        sys.stdout.write(text.encode(sys.stdout.encoding or 'utf-8',
-                                      errors='replace').decode(sys.stdout.encoding or 'utf-8'))
+        pass
+
+    # 第二优先：绕过 Python 编码层，直接写 UTF-8 字节到 buffer
+    try:
+        sys.stdout.buffer.write(text.encode('utf-8'))
+        sys.stdout.flush()
+        return
+    except Exception:
+        pass
+
+    # 最终回退：用 replace 策略（非 BMP 字符变为 ?）
+    sys.stdout.write(
+        text.encode(sys.stdout.encoding or 'utf-8', errors='replace')
+            .decode(sys.stdout.encoding or 'utf-8')
+    )
     sys.stdout.flush()
 
 class CommandlineFrontend(FrontendInterface):
@@ -28,6 +45,9 @@ class CommandlineFrontend(FrontendInterface):
     命令行前端实现类
     """
     def __init__(self):
+        # 在会话开始前确保 stdin/stdout 使用 UTF-8，
+        # 解决 Windows GBK 编码对扩展 Unicode 的限制
+        _ensure_utf8_stdio()
         self.thinking_mode = False
         
     def get_input(self) -> Tuple[str, bool]:
